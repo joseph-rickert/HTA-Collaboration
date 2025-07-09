@@ -1,0 +1,730 @@
+
+model {
+# Time between transitions (can be fixed or modeled)
+u <- 1
+
+
+# Transition probabilities p[i,j] derived from symbolic exp(tQ)
+  
+# ---------- P[1,1] ----------
+term0_11 <- 1
+term1_11 <- -u * lambda12
+
+term2a_11 <- u * u * lambda12 * lambda12
+term2b_11 <- u * u * lambda12 * lambda21
+term2_11  <- 0.5 * (term2a_11 + term2b_11)
+
+term3a_11 <- -0.5 * u * (term2a_11 + term2b_11) * lambda12
+term3b1_11 <- -u * u * lambda12 * lambda21
+term3b2_11 <- u * u * (-lambda21 - lambda23 - lambda24) * lambda21
+term3b_11 <- 0.5 * u * (term3b1_11 + term3b2_11) * lambda12
+term3_11  <- (1/3) * (term3a_11 + term3b_11)
+
+sub4a_11 <- 0.5 * u * u * u * lambda21 * lambda23 * lambda32
+sub4b_11 <- 0.5 * u * (term2a_11 + term2b_11) * lambda21
+sub4c_11 <- 0.5 * u * (term3b1_11 + term3b2_11) * (-lambda21 - lambda23 - lambda24)
+inner4a_11 <- (1/3) * u * (sub4a_11 + sub4b_11 + sub4c_11) * lambda12
+
+sub4d_11 <- -0.5 * u * (term2a_11 + term2b_11) * lambda12
+sub4e_11 <- 0.5 * u * (term3b1_11 + term3b2_11) * lambda12
+inner4b_11 <- -(1/3) * u * (sub4d_11 + sub4e_11) * lambda12
+
+term4_11 <- (1/4) * (inner4a_11 + inner4b_11)
+
+P[1,1] <- term0_11 + term1_11 + term2_11 + term3_11 + term4_11
+
+
+# ---------- P[1,2] ----------
+term1_12 <- u * lambda12
+
+term2a_12 <- -u * u * lambda12 * lambda12
+term2b_12 <- u * u * lambda12 * (-lambda21 - lambda23 - lambda24)
+term2_12  <- 0.5 * (term2a_12 + term2b_12)
+
+term3a_12 <- -0.5 * u * (term2a_12 + term2b_12) * lambda12
+term3b_12 <- 0.5 * u * (
+  u * u * lambda12 * lambda21 +
+  u * u * (-lambda21 - lambda23 - lambda24) * (-lambda21 - lambda23 - lambda24) +
+  u * u * lambda23 * lambda32
+) * lambda12
+term3_12 <- (1/3) * (term3a_12 + term3b_12)
+
+sub4a_12 <- -0.5 * u * (term2a_12 + term2b_12) * lambda12
+sub4b_12 <- 0.5 * u * (
+  u * u * lambda12 * lambda21 +
+  u * u * (-lambda21 - lambda23 - lambda24) * (-lambda21 - lambda23 - lambda24) +
+  u * u * lambda23 * lambda32
+) * lambda12
+inner4a_12 <- -(1/3) * u * (sub4a_12 + sub4b_12) * lambda12
+
+inner4b_12 <- (1/3) * u * (
+  0.5 * u * (term2a_12 + term2b_12) * lambda21 +
+  0.5 * u * (
+    u * u * lambda12 * lambda21 +
+    u * u * (-lambda21 - lambda23 - lambda24) * (-lambda21 - lambda23 - lambda24) +
+    u * u * lambda23 * lambda32
+  ) * (-lambda21 - lambda23 - lambda24) +
+  0.5 * u * (
+    u * u * (-lambda21 - lambda23 - lambda24) * lambda32 +
+    u * u * lambda32 * (-lambda32 - lambda34)
+  ) * lambda23
+) * lambda12
+
+term4_12 <- (1/4) * (inner4a_12 + inner4b_12)
+
+P[1,2] <- term1_12 + term2_12 + term3_12 + term4_12
+
+
+# ---------- P[1,3] ----------
+term2_13 <- 0.5 * u * u * lambda12 * lambda23
+
+term3a_13 <- -0.5 * u * u * u * lambda12 * lambda12 * lambda23
+term3b_13 <- 0.5 * u * (
+  u * u * (-lambda21 - lambda23 - lambda24) * lambda23 +
+  u * u * lambda23 * (-lambda32 - lambda34)
+) * lambda12
+term3_13  <- (1/3) * (term3a_13 + term3b_13)
+
+inner4a_13 <- -0.5 * u * (term3a_13 + term3b_13) * lambda12
+inner4b_13 <- (1/3) * u * (
+  0.5 * u * u * u * lambda12 * lambda21 * lambda23 +
+  0.5 * u * (
+    u * u * (-lambda21 - lambda23 - lambda24) * lambda23 +
+    u * u * lambda23 * (-lambda32 - lambda34)
+  ) * (-lambda21 - lambda23 - lambda24) +
+  0.5 * u * (
+    u * u * lambda23 * lambda32 +
+    u * u * (-lambda32 - lambda34) * (-lambda32 - lambda34)
+  ) * lambda23
+) * lambda12
+
+term4_13 <- (1/4) * (inner4a_13 + inner4b_13)
+
+P[1,3] <- term2_13 + term3_13 + term4_13
+
+
+# ---------- P[1,4] ----------
+term2_14 <- 0.5 * u * u * lambda12 * lambda24
+
+term3a_14 <- -0.5 * u * u * u * lambda12 * lambda12 * lambda24
+term3b_14 <- 0.5 * u * (
+  u * u * (-lambda21 - lambda23 - lambda24) * lambda24 +
+  u * u * lambda23 * lambda34
+) * lambda12
+term3_14  <- (1/3) * (term3a_14 + term3b_14)
+
+inner4a_14 <- -0.5 * u * (term3a_14 + term3b_14) * lambda12
+inner4b_14 <- (1/3) * u * (
+  0.5 * u * u * u * lambda12 * lambda21 * lambda24 +
+  0.5 * u * (
+    u * u * (-lambda21 - lambda23 - lambda24) * lambda24 +
+    u * u * lambda23 * lambda34
+  ) * (-lambda21 - lambda23 - lambda24) +
+  0.5 * u * (
+    u * u * lambda24 * lambda32 +
+    u * u * (-lambda32 - lambda34) * lambda34
+  ) * lambda23
+) * lambda12
+
+term4_14 <- (1/4) * (inner4a_14 + inner4b_14)
+
+P[1,4] <- term2_14 + term3_14 + term4_14
+
+# ---------- P[2,1] ----------
+# First-order term
+term1_21 <- u * lambda21
+
+# Second-order
+term2a_21 <- -u * u * lambda12 * lambda21
+term2b_21 <- u * u * (-lambda21 - lambda23 - lambda24) * lambda21
+term2_21 <- 0.5 * (term2a_21 + term2b_21)
+
+# Third-order
+term3a_21 <- 0.5 * u * u * u * lambda21 * lambda23 * lambda32
+term3b_21 <- 0.5 * u * (u * u * lambda12 * lambda12 + u * u * lambda12 * lambda21) * lambda21
+term3c_21 <- 0.5 * u * (-u * u * lambda12 * lambda21 + u * u * (-lambda21 - lambda23 - lambda24) * lambda21) * (-lambda21 - lambda23 - lambda24)
+term3_21 <- (1/3) * (term3a_21 + term3b_21 + term3c_21)
+
+# Fourth-order
+inner4a_21 <- (1/3) * u * (term3a_21 + term3b_21 + term3c_21) * (-lambda21 - lambda23 - lambda24)
+inner4b_21 <- (1/3) * u * (
+  0.5 * u * u * u * lambda21 * lambda32 * (-lambda32 - lambda34) +
+  0.5 * u * (-u * u * lambda12 * lambda21 + u * u * (-lambda21 - lambda23 - lambda24) * lambda21) * lambda32
+) * lambda23
+inner4c_21 <- (1/3) * u * (
+  -0.5 * u * (u * u * lambda12 * lambda12 + u * u * lambda12 * lambda21) * lambda12 +
+   0.5 * u * (-u * u * lambda12 * lambda21 + u * u * (-lambda21 - lambda23 - lambda24) * lambda21) * lambda12
+) * lambda21
+term4_21 <- (1/4) * (inner4a_21 + inner4b_21 + inner4c_21)
+
+# Fifth-order
+sub5a_21 <- (1/3) * u * (
+  term3a_21 + term3b_21 + term3c_21
+) * lambda12
+
+sub5b_21 <- (1/3) * u * (
+  -0.5 * u * (u * u * lambda12 * lambda12 + u * u * lambda12 * lambda21) * lambda12 +
+   0.5 * u * (-u * u * lambda12 * lambda21 + u * u * (-lambda21 - lambda23 - lambda24) * lambda21) * lambda12
+) * lambda12
+
+inner5a_21 <- (1/4) * u * (sub5a_21 - sub5b_21) * lambda21
+
+inner5b_21 <- (1/4) * u * (inner4a_21 + inner4b_21 + inner4c_21) * (-lambda21 - lambda23 - lambda24)
+
+inner5c_21 <- (1/4) * u * (
+  (1/3) * u * (term3a_21 + term3b_21 + term3c_21) * lambda32 +
+  (1/3) * u * (
+    0.5 * u * u * u * lambda21 * lambda32 * (-lambda32 - lambda34) +
+    0.5 * u * (-u * u * lambda12 * lambda21 + u * u * (-lambda21 - lambda23 - lambda24) * lambda21) * lambda32
+  ) * (-lambda32 - lambda34)
+) * lambda23
+
+term5_21 <- (1/5) * (inner5a_21 + inner5b_21 + inner5c_21)
+
+P[2,1] <- term1_21 + term2_21 + term3_21 + term4_21 + term5_21
+
+# ---------- P[2,2] ----------
+term0_22 <- 1
+term1_22 <- u * (-lambda21 - lambda23 - lambda24)
+
+term2a_22 <- u * u * lambda12 * lambda21
+term2b_22 <- u * u * (-lambda21 - lambda23 - lambda24) * (-lambda21 - lambda23 - lambda24)
+term2c_22 <- u * u * lambda23 * lambda32
+term2_22 <- 0.5 * (term2a_22 + term2b_22 + term2c_22)
+
+term3a_22 <- 0.5 * u * (-u * u * lambda12 * lambda12 + u * u * lambda12 * (-lambda21 - lambda23 - lambda24)) * lambda21
+term3b_22 <- 0.5 * u * (term2a_22 + term2b_22 + term2c_22) * (-lambda21 - lambda23 - lambda24)
+term3c_22 <- 0.5 * u * (
+  u * u * (-lambda21 - lambda23 - lambda24) * lambda32 +
+  u * u * lambda32 * (-lambda32 - lambda34)
+) * lambda23
+term3_22 <- (1/3) * (term3a_22 + term3b_22 + term3c_22)
+
+inner4a_22 <- (1/3) * u * (
+  -0.5 * u * (-u * u * lambda12 * lambda12 + u * u * lambda12 * (-lambda21 - lambda23 - lambda24)) * lambda12 +
+   0.5 * u * (term2a_22 + term2b_22 + term2c_22) * lambda12
+) * lambda21
+
+inner4b_22 <- (1/3) * u * (term3a_22 + term3b_22 + term3c_22) * (-lambda21 - lambda23 - lambda24)
+
+inner4c_22 <- (1/3) * u * (
+  0.5 * u * term2_22 * lambda32 +
+  0.5 * u * (
+    u * u * (-lambda21 - lambda23 - lambda24) * lambda32 +
+    u * u * lambda32 * (-lambda32 - lambda34)
+  ) * (-lambda32 - lambda34)
+) * lambda23
+
+term4_22 <- (1/4) * (inner4a_22 + inner4b_22 + inner4c_22)
+
+term5a_22 <- (1/4) * u * (
+  - (1/3) * u * (inner4a_22) * lambda12 +
+    (1/3) * u * (term3a_22 + term3b_22 + term3c_22) * lambda12
+) * lambda21
+
+term5b_22 <- (1/4) * u * (inner4a_22 + inner4b_22 + inner4c_22) * (-lambda21 - lambda23 - lambda24)
+
+term5c_22 <- (1/4) * u * (
+  (1/3) * u * term3_22 * lambda32 +
+  (1/3) * u * (
+    term2_22 * lambda32 +
+    (
+      u * u * (-lambda21 - lambda23 - lambda24) * lambda32 +
+      u * u * lambda32 * (-lambda32 - lambda34)
+    ) * (-lambda32 - lambda34)
+  )
+) * lambda23
+
+term5_22 <- (1/5) * (term5a_22 + term5b_22 + term5c_22)
+
+P[2,2] <- term0_22 + term1_22 + term2_22 + term3_22 + term4_22 + term5_22
+
+# ---------- P[2,3] ----------
+term1_23 <- u * lambda23
+
+term2a_23 <- u * u * (-lambda21 - lambda23 - lambda24) * lambda23
+term2b_23 <- u * u * lambda23 * (-lambda32 - lambda34)
+term2_23  <- 0.5 * (term2a_23 + term2b_23)
+
+term3a_23 <- 0.5 * u * u * u * lambda12 * lambda21 * lambda23
+term3b_23 <- 0.5 * u * (term2a_23 + term2b_23) * (-lambda21 - lambda23 - lambda24)
+term3c_23 <- 0.5 * u * (
+  u * u * lambda23 * lambda32 +
+  u * u * (-lambda32 - lambda34) * (-lambda32 - lambda34)
+) * lambda23
+term3_23 <- (1/3) * (term3a_23 + term3b_23 + term3c_23)
+
+inner4a_23 <- (1/3) * u * (
+  -0.5 * u * u * u * lambda12 * lambda12 * lambda23 +
+   0.5 * u * (term2a_23 + term2b_23) * lambda12
+) * lambda21
+
+inner4b_23 <- (1/3) * u * (term3a_23 + term3b_23 + term3c_23) * (-lambda21 - lambda23 - lambda24)
+
+inner4c_23 <- (1/3) * u * (
+  0.5 * u * (term2a_23 + term2b_23) * lambda32 +
+  0.5 * u * (
+    u * u * lambda23 * lambda32 +
+    u * u * (-lambda32 - lambda34) * (-lambda32 - lambda34)
+  ) * (-lambda32 - lambda34)
+) * lambda23
+
+term4_23 <- (1/4) * (inner4a_23 + inner4b_23 + inner4c_23)
+
+term5a_23 <- (1/4) * u * (
+  - (1/3) * u * (
+    -0.5 * u * u * u * lambda12 * lambda12 * lambda23 +
+    0.5 * u * (term2a_23 + term2b_23) * lambda12
+  ) * lambda12 +
+  (1/3) * u * (term3a_23 + term3b_23 + term3c_23) * lambda12
+) * lambda21
+
+term5b_23 <- (1/4) * u * (inner4a_23 + inner4b_23 + inner4c_23) * (-lambda21 - lambda23 - lambda24)
+
+term5c_23 <- (1/4) * u * (
+  (1/3) * u * term3_23 * lambda32 +
+  (1/3) * u * (
+    0.5 * u * (term2a_23 + term2b_23) * lambda32 +
+    0.5 * u * (
+      u * u * lambda23 * lambda32 +
+      u * u * (-lambda32 - lambda34) * (-lambda32 - lambda34)
+    ) * (-lambda32 - lambda34)
+  )
+) * lambda23
+
+term5_23 <- (1/5) * (term5a_23 + term5b_23 + term5c_23)
+
+P[2,3] <- term1_23 + term2_23 + term3_23 + term4_23 + term5_23
+
+# ---------- P[2,4] ----------
+# ---------- P[2,4] ----------
+
+# First-order term
+term1_24 <- u * lambda24
+
+# Second-order terms
+term2a_24 <- u * u * (-lambda21 - lambda23 - lambda24) * lambda24
+term2b_24 <- u * u * lambda23 * lambda34
+term2_24  <- 0.5 * (term2a_24 + term2b_24)
+
+# Third-order terms
+term3a_24 <- 0.5 * u * u * u * lambda12 * lambda21 * lambda24
+term3b_24 <- 0.5 * u * (term2a_24 + term2b_24) * (-lambda21 - lambda23 - lambda24)
+term3c_24 <- 0.5 * u * (
+  u * u * lambda24 * lambda32 +
+  u * u * (-lambda32 - lambda34) * lambda34
+) * lambda23
+term3_24 <- (1/3) * (term3a_24 + term3b_24 + term3c_24)
+
+# Fourth-order terms
+inner4a_24 <- (1/3) * u * (
+  -0.5 * u * u * u * lambda12 * lambda12 * lambda24 +
+   0.5 * u * (term2a_24 + term2b_24) * lambda12
+) * lambda21
+
+inner4b_24 <- (1/3) * u * (term3a_24 + term3b_24 + term3c_24) * (-lambda21 - lambda23 - lambda24)
+
+inner4c_24 <- (1/3) * u * (
+  0.5 * u * (term2a_24 + term2b_24) * lambda32 +
+  0.5 * u * (
+    u * u * lambda24 * lambda32 +
+    u * u * (-lambda32 - lambda34) * lambda34
+  ) * (-lambda32 - lambda34)
+) * lambda23
+
+term4_24 <- (1/4) * (inner4a_24 + inner4b_24 + inner4c_24)
+
+# Fifth-order terms
+
+term5a_24 <- (1/4) * u * (
+  (1/3) * u * (
+    -0.5 * u * u * u * lambda12 * lambda12 * lambda24 +
+     0.5 * u * (term2a_24 + term2b_24) * lambda12
+  ) * lambda12 +
+  (1/3) * u * (term3a_24 + term3b_24 + term3c_24) * lambda12
+) * lambda21
+
+term5b_24 <- (1/4) * u * (inner4a_24 + inner4b_24 + inner4c_24) * (-lambda21 - lambda23 - lambda24)
+
+term5c_24 <- (1/4) * u * (
+  (1/3) * u * (term3a_24 + term3b_24 + term3c_24) * lambda32 +
+  (1/3) * u * (
+    0.5 * u * (term2a_24 + term2b_24) * lambda32 +
+    0.5 * u * (
+      u * u * lambda24 * lambda32 +
+      u * u * (-lambda32 - lambda34) * lambda34
+    ) * (-lambda32 - lambda34)
+  )
+) * lambda23
+
+term5_24 <- (1/5) * (term5a_24 + term5b_24 + term5c_24)
+
+# Final assignment
+P[2,4] <- term1_24 + term2_24 + term3_24 + term4_24 + term5_24
+
+# ---------- P[3,1] ----------
+
+# Second-order term
+term2_31 <- 0.5 * u * u * lambda21 * lambda32
+
+# Third-order terms
+term3a_31 <- 0.5 * u * u * u * lambda21 * lambda32 * (-lambda32 - lambda34)
+term3b_31 <- 0.5 * u * (
+  -u * u * lambda12 * lambda21 + u * u * (-lambda21 - lambda23 - lambda24) * lambda21
+) * lambda32
+term3_31  <- (1/3) * (term3a_31 + term3b_31)
+
+# Fourth-order terms
+sub4a1_31 <- 0.5 * u * u * u * lambda21 * lambda23 * lambda32
+sub4a2_31 <- 0.5 * u * (u * u * lambda12 * lambda12 + u * u * lambda12 * lambda21) * lambda21
+sub4a3_31 <- 0.5 * u * (
+  -u * u * lambda12 * lambda21 + u * u * (-lambda21 - lambda23 - lambda24) * lambda21
+) * (-lambda21 - lambda23 - lambda24)
+inner4a_31 <- (1/3) * u * (sub4a1_31 + sub4a2_31 + sub4a3_31) * lambda32
+
+sub4b1_31 <- term3a_31
+sub4b2_31 <- term3b_31
+inner4b_31 <- (1/3) * u * (sub4b1_31 + sub4b2_31) * (-lambda32 - lambda34)
+
+term4_31 <- (1/4) * (inner4a_31 + inner4b_31)
+
+# Fifth-order terms
+
+## Branch A
+inner5a_31 <- (1/3) * u * (sub4a1_31 + sub4a2_31 + sub4a3_31) * (-lambda21 - lambda23 - lambda24)
+inner5b_31 <- (1/3) * u * (sub4b1_31 + sub4b2_31) * lambda23
+
+sub5a3a_31 <- -0.5 * u * (u * u * lambda12 * lambda12 + u * u * lambda12 * lambda21) * lambda12
+sub5a3b_31 <- 0.5 * u * (
+  -u * u * lambda12 * lambda21 + u * u * (-lambda21 - lambda23 - lambda24) * lambda21
+) * lambda12
+inner5c_31 <- (1/3) * u * (sub5a3a_31 + sub5a3b_31) * lambda21
+
+branchA_31 <- (1/4) * u * (inner5a_31 + inner5b_31 + inner5c_31) * lambda32
+
+## Branch B
+inner5d_31 <- (1/3) * u * (sub4a1_31 + sub4a2_31 + sub4a3_31) * lambda32
+inner5e_31 <- (1/3) * u * (sub4b1_31 + sub4b2_31) * (-lambda32 - lambda34)
+branchB_31 <- (1/4) * u * (inner5d_31 + inner5e_31) * (-lambda32 - lambda34)
+
+term5_31 <- (1/5) * (branchA_31 + branchB_31)
+
+P[3,1] <- term2_31 + term3_31 + term4_31 + term5_31
+
+# ---------- P[3,2] ----------
+
+# First-order term
+term1_32 <- u * lambda32
+
+# Second-order terms
+term2a_32 <- u * u * (-lambda21 - lambda23 - lambda24) * lambda32
+term2b_32 <- u * u * lambda32 * (-lambda32 - lambda34)
+term2_32  <- 0.5 * (term2a_32 + term2b_32)
+
+# Third-order terms
+term3a_32 <- 0.5 * u * (
+  u * u * lambda12 * lambda21 +
+  u * u * (-lambda21 - lambda23 - lambda24) * (-lambda21 - lambda23 - lambda24) +
+  u * u * lambda23 * lambda32
+) * lambda32
+
+term3b_32 <- 0.5 * u * (term2a_32 + term2b_32) * (-lambda32 - lambda34)
+
+term3_32 <- (1/3) * (term3a_32 + term3b_32)
+
+# Fourth-order terms
+sub4a1_32 <- 0.5 * u * (
+  -u * u * lambda12 * lambda12 +
+  u * u * lambda12 * (-lambda21 - lambda23 - lambda24)
+) * lambda21
+
+sub4a2_32 <- term3a_32
+sub4a3_32 <- term2a_32 + term2b_32
+
+inner4a_32 <- (1/3) * u * (
+  sub4a1_32 + sub4a2_32 + 0.5 * u * sub4a3_32 * lambda23
+) * lambda32
+
+inner4b_32 <- (1/3) * u * (term3a_32 + term3b_32) * (-lambda32 - lambda34)
+
+term4_32 <- (1/4) * (inner4a_32 + inner4b_32)
+
+# Fifth-order terms
+
+## Branch A
+sub5a1_32 <- -0.5 * u * (
+  -u * u * lambda12 * lambda12 +
+  u * u * lambda12 * (-lambda21 - lambda23 - lambda24)
+) * lambda12
+
+sub5a2_32 <- term3a_32
+inner5a_32 <- (1/3) * u * (sub5a1_32 + sub5a2_32) * lambda21
+
+inner5b_32 <- (1/3) * u * (
+  sub5a1_32 * lambda21 +
+  term3a_32 * (-lambda21 - lambda23 - lambda24) +
+  0.5 * u * sub4a3_32 * lambda23
+) * (-lambda21 - lambda23 - lambda24)
+
+inner5c_32 <- (1/3) * u * (term3a_32 + term3b_32) * lambda23
+
+branchA_32 <- (1/4) * u * (inner5a_32 + inner5b_32 + inner5c_32) * lambda32
+
+## Branch B
+inner5d_32 <- (1/3) * u * (
+  sub5a1_32 * lambda21 +
+  term3a_32 * (-lambda21 - lambda23 - lambda24) +
+  0.5 * u * sub4a3_32 * lambda23
+) * lambda32
+
+inner5e_32 <- (1/3) * u * (term3a_32 + term3b_32) * (-lambda32 - lambda34)
+
+branchB_32 <- (1/4) * u * (inner5d_32 + inner5e_32) * (-lambda32 - lambda34)
+
+term5_32 <- (1/5) * (branchA_32 + branchB_32)
+
+P[3,2] <- term1_32 + term2_32 + term3_32 + term4_32 + term5_32
+
+
+# ---------- P[3,3] ----------
+
+# Zeroth-order term
+term0_33 <- 1
+
+# First-order term
+term1_33 <- u * (-lambda32 - lambda34)
+
+# Second-order terms
+term2a_33 <- u * u * lambda23 * lambda32
+term2b_33 <- u * u * (-lambda32 - lambda34) * (-lambda32 - lambda34)
+term2_33  <- 0.5 * (term2a_33 + term2b_33)
+
+# Third-order terms
+term3a_33 <- 0.5 * u * (
+  u * u * (-lambda21 - lambda23 - lambda24) * lambda23 +
+  u * u * lambda23 * (-lambda32 - lambda34)
+) * lambda32
+
+term3b_33 <- 0.5 * u * (term2a_33 + term2b_33) * (-lambda32 - lambda34)
+
+term3_33 <- (1/3) * (term3a_33 + term3b_33)
+
+# Fourth-order terms
+inner4a_33 <- (1/3) * u * (
+  0.5 * u * u * u * lambda12 * lambda21 * lambda23 +
+  0.5 * u * (
+    u * u * (-lambda21 - lambda23 - lambda24) * lambda23 +
+    u * u * lambda23 * (-lambda32 - lambda34)
+  ) * (-lambda21 - lambda23 - lambda24) +
+  0.5 * u * (
+    u * u * lambda23 * lambda32 +
+    u * u * (-lambda32 - lambda34) * (-lambda32 - lambda34)
+  ) * lambda23
+) * lambda32
+
+inner4b_33 <- (1/3) * u * (
+  0.5 * u * (
+    u * u * (-lambda21 - lambda23 - lambda24) * lambda23 +
+    u * u * lambda23 * (-lambda32 - lambda34)
+  ) * lambda32 +
+  0.5 * u * (term2a_33 + term2b_33) * (-lambda32 - lambda34)
+) * (-lambda32 - lambda34)
+
+term4_33 <- (1/4) * (inner4a_33 + inner4b_33)
+
+# Fifth-order terms
+term5a_33 <- (1/4) * u * (
+  (1/3) * u * (
+    -0.5 * u * u * u * lambda12 * lambda12 * lambda23 +
+     0.5 * u * (
+       u * u * (-lambda21 - lambda23 - lambda24) * lambda23 +
+       u * u * lambda23 * (-lambda32 - lambda34)
+     ) * lambda12
+  ) * lambda21 +
+  (1/3) * u * inner4a_33 * (-lambda21 - lambda23 - lambda24) +
+  (1/3) * u * (
+    0.5 * u * (
+      u * u * (-lambda21 - lambda23 - lambda24) * lambda23 +
+      u * u * lambda23 * (-lambda32 - lambda34)
+    ) * lambda32 +
+    0.5 * u * (term2a_33 + term2b_33) * (-lambda32 - lambda34)
+  ) * lambda23
+) * lambda32
+
+term5b_33 <- (1/4) * u * (
+  inner4a_33 +
+  inner4b_33
+) * (-lambda32 - lambda34)
+
+term5_33 <- (1/5) * (term5a_33 + term5b_33)
+
+P[3,3] <- term0_33 + term1_33 + term2_33 + term3_33 + term4_33 + term5_33
+
+# ---------- P[3,4] ----------
+
+# First-order term
+term1_34 <- u * lambda34
+
+# Second-order terms
+term2a_34 <- u * u * lambda24 * lambda32
+term2b_34 <- u * u * (-lambda32 - lambda34) * lambda34
+term2_34  <- 0.5 * (term2a_34 + term2b_34)
+
+# Third-order terms
+term3a_34 <- 0.5 * u * (
+  u * u * (-lambda21 - lambda23 - lambda24) * lambda24 +
+  u * u * lambda23 * lambda34
+) * lambda32
+
+term3b_34 <- 0.5 * u * (term2a_34 + term2b_34) * (-lambda32 - lambda34)
+
+term3_34 <- (1/3) * (term3a_34 + term3b_34)
+
+# Fourth-order terms
+inner4a_34 <- (1/3) * u * (
+  0.5 * u * u * u * lambda12 * lambda21 * lambda24 +
+  0.5 * u * (
+    u * u * (-lambda21 - lambda23 - lambda24) * lambda24 +
+    u * u * lambda23 * lambda34
+  ) * (-lambda21 - lambda23 - lambda24) +
+  0.5 * u * (
+    u * u * lambda24 * lambda32 +
+    u * u * (-lambda32 - lambda34) * lambda34
+  ) * lambda23
+) * lambda32
+
+inner4b_34 <- (1/3) * u * (
+  0.5 * u * (
+    u * u * (-lambda21 - lambda23 - lambda24) * lambda24 +
+    u * u * lambda23 * lambda34
+  ) * lambda32 +
+  0.5 * u * (term2a_34 + term2b_34) * (-lambda32 - lambda34)
+) * (-lambda32 - lambda34)
+
+term4_34 <- (1/4) * (inner4a_34 + inner4b_34)
+
+# Fifth-order terms
+term5a_34 <- (1/4) * u * (
+  (1/3) * u * (
+    -0.5 * u * u * u * lambda12 * lambda12 * lambda24 +
+     0.5 * u * (
+       u * u * (-lambda21 - lambda23 - lambda24) * lambda24 +
+       u * u * lambda23 * lambda34
+     ) * lambda12
+  ) * lambda21 +
+  (1/3) * u * inner4a_34 * (-lambda21 - lambda23 - lambda24) +
+  (1/3) * u * (
+    0.5 * u * (
+      u * u * (-lambda21 - lambda23 - lambda24) * lambda24 +
+      u * u * lambda23 * lambda34
+    ) * lambda32 +
+    0.5 * u * (
+      u * u * lambda24 * lambda32 +
+      u * u * (-lambda32 - lambda34) * lambda34
+    ) * (-lambda32 - lambda34)
+  ) * lambda23
+) * lambda32
+
+term5b_34 <- (1/4) * u * (
+  inner4a_34 +
+  inner4b_34
+) * (-lambda32 - lambda34)
+
+term5_34 <- (1/5) * (term5a_34 + term5b_34)
+
+P[3,4] <- term1_34 + term2_34 + term3_34 + term4_34 + term5_34
+
+# ---------- P[4,j] ---------- 
+P[4,1] <- 0
+P[4,2] <- 0
+P[4,3] <- 0
+P[4,4] <- 1
+
+
+# For stability
+row1_sum <- P[1,1] + P[1,2] + P[1,3] + P[1,4]
+
+p[1,1] <- max(max(P[1,1] / row2_sum, 0), 0.000001)
+p[1,2] <- max(max(P[1,2] / row2_sum, 0), 0.000001)
+p[1,3] <- max(max(P[1,3] / row2_sum, 0), 0.000001)
+p[1,4] <- max(max(P[1,4] / row2_sum, 0), 0.000001)
+
+r[1,1:4] ~ dmulti(p[1,1:4], n[1])
+
+
+# After P[2,j]
+row2_sum <- P[2,1] + P[2,2] + P[2,3] + P[2,4]
+
+p[2,1] <- max(max(P[2,1] / row2_sum, 0), 0.000001)
+p[2,2] <- max(max(P[2,2] / row2_sum, 0), 0.000001)
+p[2,3] <- max(max(P[2,3] / row2_sum, 0), 0.000001)
+p[2,4] <- max(max(P[2,4] / row2_sum, 0), 0.000001)
+
+r[2,1:4] ~ dmulti(p[2,1:4], n[2])
+
+#  # After P[3,j]
+ 
+row3_sum <- P[3,1] + P[3,2] + P[3,3] + P[3,4]
+
+# p[3,1] <- max(P[3,1] / row3_sum, 0)
+# p[3,2] <- max(P[3,2] / row3_sum, 0)
+# p[3,3] <- max(P[3,3] / row3_sum, 0)
+# p[3,4] <- max(P[3,4] / row3_sum, 0)
+
+p[3,1] <- max(max(P[3,1] / row3_sum, 0), 0.000001)
+p[3,2] <- max(max(P[3,2] / row3_sum, 0), 0.000001)
+p[3,3] <- max(max(P[3,3] / row3_sum, 0), 0.000001)
+p[3,4] <- max(max(P[3,4] / row3_sum, 0), 0.000001)
+
+r[3,1:4] ~ dmulti(p[3,1:4], n[3])
+
+
+# After P[4,j]
+for (j in 1:4) {
+  p[4,j] <- P[4,j]
+}
+r[4,1:4] ~ dmulti(p[4,1:4], n[4])
+
+
+# Priors for transition rates
+
+
+lambda12 ~ dgamma(0.1, 0.1)
+lambda13 ~ dgamma(0.1, 0.1)
+lambda14 ~ dgamma(0.1, 0.1)
+
+lambda11 <- -(lambda12 + lambda13 + lambda14)
+
+# Priors from state 2
+lambda21 ~ dgamma(0.1, 0.1)
+lambda23 ~ dgamma(0.1, 0.1)
+lambda24 ~ dgamma(0.1, 0.1)
+
+lambda22 <- -(lambda21 + lambda23 + lambda24)
+
+
+# Priors from state 3
+
+lambda31 ~ dgamma(0.1, 0.1)
+lambda32 ~ dgamma(0.1, 0.1)
+lambda34 ~ dgamma(0.1, 0.1)
+
+lambda33 <- -(lambda31 + lambda32 + lambda34)
+
+# Priors from state 4
+
+# lambda41 <- 0
+# lambda42 <- 0
+# lambda43 <- 0
+
+
+
+# Priors for state r
+lambda41 ~ dgamma(0.1, 0.1)
+lambda42 ~ dgamma(0.1, 0.1)
+lambda43 ~ dgamma(0.1, 0.1)
+
+
+
+}
+
