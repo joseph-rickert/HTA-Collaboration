@@ -1,0 +1,80 @@
+# Import packages (uncomment to install if needed)
+# import Pkg; Pkg.add("Symbolics")
+# import Pkg; Pkg.add("LinearAlgebra")
+
+using Symbolics
+using LinearAlgebra
+
+# Define symbolic variables
+@variables u λ12 λ21 λ23 λ24 λ32 λ34
+
+# Define generator matrix G (4×4)
+G = [
+    -λ12               λ12               0                0;
+     λ21  -(λ21 + λ23 + λ24)         λ23             λ24;
+     0                 λ32    -(λ32 + λ34)         λ34;
+     0                  0                0                0
+]
+
+G_sym = Symbolics.Matrix(G)
+
+# Function to compute symbolic matrix exponential via Taylor series
+function symbolic_matrix_exp(G, u, n_terms)
+    expG = zeros(typeof(G[1]), size(G)...)
+    term = Matrix{typeof(G[1])}(I, size(G)...)
+    for n in 0:n_terms
+        if n > 0
+            term = (u .* G * term) ./ n
+        end
+        expG += term
+    end
+    return Symbolics.Matrix(expG)
+end
+
+# Compute symbolic transition matrix P = exp(uG)
+n_terms = 5
+expGu = symbolic_matrix_exp(G_sym, u, n_terms)
+
+# Substitution dictionary for evaluation
+subs = Dict(u => 2.0, λ12 => 0.1, λ21 => 0.2, λ23 => 0.05, λ24 => 0.05,
+            λ32 => 0.1, λ34 => 0.05)
+
+# Display and validate symbolic transition probabilities
+println("\nSymbolic transition probabilities with sanity checks:\n")
+
+for i in 1:size(expGu, 1)
+    println("Row $i:")
+    row_values = []
+
+    for j in 1:size(expGu, 2)
+        expr = expGu[i, j]
+       numeric = Symbolics.substitute(expr, subs)
+numeric_value = Symbolics.value(numeric)
+
+
+        println("  P[$i,$j] = ", expr)
+        println("    → Evaluated: ", numeric)
+
+        push!(row_values, numeric)
+
+        if !(numeric isa Real)
+            println("    ❌ Not a real number")
+        elseif isnan(numeric) || isinf(numeric)
+            println("    ❌ NaN or Inf detected")
+        elseif numeric < 0
+            println("    ❌ Negative value")
+        elseif numeric > 1
+            println("    ⚠️ Greater than 1")
+        end
+    end
+
+    row_sum = sum(row_values)
+    println("  Row sum = ", row_sum)
+
+    if abs(row_sum - 1.0) > 1e-3
+        println("  ⚠️ Row does not sum to ≈ 1")
+    else
+        println("  ✅ Row is valid")
+    end
+    println("")
+end
