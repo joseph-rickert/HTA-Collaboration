@@ -1,0 +1,261 @@
+---
+title: "Welton_4_state_forward"
+format: html
+---
+
+This document provides an rjags version of the four state for model from Welton et al. (2007) *Solution to Kolmogorov's equations for some common Markov models*
+
+```{r}
+### 1. Load packages
+library(R2jags)
+library(tidyverse)
+library(coda)
+library(abind)
+library(tibble)
+library(ggplot2)
+library(rjags)
+
+```
+
+```{r}
+jags_model_string <- "  # ← Start of model
+model {
+  for (i in 1:3) {
+    r[i, 1:4] ~ dmulti(P[i, 1:4], n[i])
+  }
+
+  for (i in 1:3) {
+    for (j in 1:4) {
+      is_offdiag[i, j] <- step(j - i)
+      G_temp[i, j] ~ dunif(0, 5)
+      G[i, j] <- ifelse(j == i, -sum(G_temp[i, (i+1):4]),
+                     ifelse(j > i, G_temp[i, j], 0))
+    }
+
+    s[i] <- -G[i, i]
+    e[i] <- exp(-s[i] * t_obs)
+  }
+
+  # Transition probabilities at t_obs
+  P[1,1] <- e[1]
+  P[1,2] <- G[1,2]*(e[2] - e[1]) / (s[1] - s[2])
+  P[1,3] <- G[1,3]*(e[3] - e[1]) / (s[1] - s[3]) +
+            G[1,2]*G[2,3]*((s[1] - s[2])*e[3] -
+                           (s[1] - s[3])*e[2] +
+                           (s[2] - s[3])*e[1]) /
+            ((s[1] - s[2])*(s[1] - s[3])*(s[2] - s[3]))
+  P[1,4] <- 1 - sum(P[1, 1:3])
+
+  P[2,1] <- 0
+  P[2,2] <- e[2]
+  P[2,3] <- G[2,3]*(e[3] - e[2]) / (s[2] - s[3])
+  P[2,4] <- 1 - sum(P[2, 1:3])
+
+  P[3,1] <- 0
+  P[3,2] <- 0
+  P[3,3] <- e[3]
+  P[3,4] <- 1 - sum(P[3, 1:3])
+
+  # Transition probabilities at t_new
+  for (i in 1:3) {
+    e_t[i] <- exp(-s[i] * t_new)
+  }
+
+  P_t[1,1] <- e_t[1]
+  P_t[1,2] <- G[1,2]*(e_t[2] - e_t[1]) / (s[1] - s[2])
+  P_t[1,3] <- G[1,3]*(e_t[3] - e_t[1]) / (s[1] - s[3]) +
+              G[1,2]*G[2,3]*((s[1] - s[2])*e_t[3] -
+                             (s[1] - s[3])*e_t[2] +
+                             (s[2] - s[3])*e_t[1]) /
+              ((s[1] - s[2])*(s[1] - s[3])*(s[2] - s[3]))
+  P_t[1,4] <- 1 - sum(P_t[1, 1:3])
+
+  P_t[2,1] <- 0
+  P_t[2,2] <- e_t[2]
+  P_t[2,3] <- G[2,3]*(e_t[3] - e_t[2]) / (s[2] - s[3])
+  P_t[2,4] <- 1 - sum(P_t[2, 1:3])
+
+  P_t[3,1] <- 0
+  P_t[3,2] <- 0
+  P_t[3,3] <- e_t[3]
+  P_t[3,4] <- 1 - sum(P_t[3, 1:3])
+}
+"
+writeLines(jags_model_string, "markov_model.bug")
+
+```
+
+FIT THE MODEL
+
+```{r}
+library(R2jags)
+library(coda)
+library(tidyverse)
+
+data_list <- list(
+  r = matrix(c(20,6,4,2, 0,5,5,3, 0,0,3,7), nrow = 3, byrow = TRUE),
+  n = c(32, 13, 10),
+  t_obs = 2,
+  t_new = 0.25
+)
+
+inits <- function() {
+  list(G_temp = matrix(runif(12, 0.1, 1), nrow = 3, ncol = 4))
+}
+
+results <- jags(
+  data = data_list,
+  inits = list(inits(), inits(), inits()),
+  parameters.to.save = c("P_t", "P"),
+  model.file = "markov_model.bug",
+  n.chains = 3,
+  n.iter = 5000,
+  n.burnin = 1000,
+  n.thin = 10
+)
+
+```
+
+PLOT POSTERIOR DISTRIBUTIONS
+
+```{r}
+sims <- results$BUGSoutput$sims.list
+
+# Pick key transitions
+transition_posteriors <- tibble(
+  `P_t[1,2]` = sims$P_t[,1,2],
+  `P_t[1,3]` = sims$P_t[,1,3],
+  `P_t[2,3]` = sims$P_t[,2,3],
+  `P_t[1,4]` = sims$P_t[,1,4]
+) %>%
+  pivot_longer(everything(), names_to = "Transition", values_to = "Probability")
+
+ggplot(transition_posteriors, aes(x = Probability, fill = Transition)) +
+  geom_density(alpha = 0.6) +
+  facet_wrap(~ Transition, scales = "free") +
+  labs(title = "Posterior Distributions of Transition Probabilities",
+       x = "Probability", y = "Density") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+```
+
+DIAGNOSTICS
+```{r}
+data_diag <- list(
+  r = matrix(c(20,6,4,2, 0,5,5,3, 0,0,3,7), nrow = 3, byrow = TRUE),
+  n = c(32, 13, 10),
+  t_obs = 2,
+  t_new = 0.25
+)
+
+diag_fit <- jags(
+  data = data_diag,
+  inits = list(inits(), inits(), inits()),
+  parameters.to.save = c("G", "P", "P_t"),
+  model.file = "markov_model.bug",
+  n.chains = 3,
+  n.iter = 5000,
+  n.burnin = 1000,
+  n.thin = 10
+)
+
+```
+
+Diagnostics
+```{r}
+
+# Convert to mcmc.list
+mcmc_diag <- as.mcmc.list(diag_fit$BUGSoutput)
+
+
+# Extract P_t variables across all chains
+pt_indices <- grep("P_t\\[", varnames(mcmc_diag[[1]]))
+
+# Traceplots
+traceplot(mcmc_diag[, pt_indices],
+          col = c("darkred", "steelblue", "darkgreen"),
+          main = "Traceplots for P_t transitions")
+
+# Density plots
+densplot(mcmc_diag[, pt_indices],
+         col = "darkblue", show.obs = FALSE)
+
+# Gelman-Rubin diagnostics
+gelman.diag(mcmc_diag[, pt_indices], multivariate = FALSE)
+
+# Autocorrelation
+autocorr.plot(mcmc_diag[, pt_indices], lag.max = 50)
+
+```
+
+
+
+
+SURVIVAL CURVES
+
+```{r}
+# Time points for evaluating survival
+time_grid <- seq(0.1, 5, by = 0.2)
+
+# Initialize matrix to store posterior means of survival probabilities
+surv_curves <- matrix(NA, nrow = length(time_grid), ncol = 3)
+colnames(surv_curves) <- paste0("State ", 1:3)
+
+# Static data that doesn't change across time
+base_data <- list(
+  r = matrix(c(20,6,4,2, 0,5,5,3, 0,0,3,7), nrow = 3, byrow = TRUE),
+  n = c(32, 13, 10),
+  t_obs = 2
+)
+
+inits <- function() {
+  list(G_temp = matrix(runif(12, 0.1, 1), nrow = 3, ncol = 4))
+}
+
+```
+
+Loop over survival
+```{r}
+for (i in seq_along(time_grid)) {
+  data_list <- base_data
+  data_list$t_new <- time_grid[i]
+
+  sim <- jags(
+    data = data_list,
+    inits = list(inits(), inits(), inits()),
+    parameters.to.save = "P_t",
+    model.file = "markov_model.bug",
+    n.chains = 3,
+    n.iter = 3000,
+    n.burnin = 500,
+    n.thin = 2,
+    quiet = TRUE
+  )
+
+  pt <- sim$BUGSoutput$sims.list$P_t
+  surv_curves[i, ] <- apply(pt[, , 4], 2, function(x) 1 - mean(x))
+}
+
+```
+
+
+
+Plot curves
+
+```{r}
+
+# Convert to tidy format for ggplot
+surv_df <- as_tibble(surv_curves) %>%
+  mutate(Time = time_grid) %>%
+  pivot_longer(-Time, names_to = "Start_State", values_to = "Survival_Prob")
+
+ggplot(surv_df, aes(x = Time, y = Survival_Prob, color = Start_State)) +
+  geom_line(size = 1.1) +
+  labs(title = "Posterior Mean Survival Curves by Starting State",
+       x = "Time", y = "Survival Probability") +
+  theme_minimal()
+
+```
+
+

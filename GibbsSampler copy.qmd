@@ -1,0 +1,522 @@
+---
+title: "GibbsSampler"
+format: html
+---
+
+Since your model includes multinomial likelihoods and gamma priors for transition rates, we’ll build a custom Gibbs sampler that:
+
+Samples the transition rate parameters G[1,2], G[1,3], G[2,3]
+
+Computes the resulting probabilities P
+
+Evaluates the likelihood via the multinomial model
+
+Uses adaptive Metropolis-within-Gibbs for each G[i,j] since no closed-form posterior is available
+
+Let’s say you want to estimate G[1,2], G[1,3], and G[2,3], with observed multinomial counts r and row sums n:
+
+```{r}
+# Observed data
+r <- matrix(c(20, 3, 7, 0, 5, 5), nrow = 2, byrow = TRUE)
+n <- rowSums(r)
+t_obs <- 2  # time at which transition probabilities are observed
+
+# Prior hyperparameters for each rate (Gamma prior)
+a0 <- 0.1
+b0 <- 0.1
+```
+
+Gibbs Sampler with Metropolis Updates
+
+```{r}
+gibbs_sampler <- function(r, n, t_obs, n_iter = 5000, proposal_sd = 0.1) {
+  # Storage
+  samples <- matrix(NA, nrow = n_iter, ncol = 3)
+  colnames(samples) <- c("G12", "G13", "G23")
+
+  # Initial values
+  G <- c(0.5, 0.5, 0.5)
+
+  for (iter in 1:n_iter) {
+    for (j in 1:3) {
+      # Propose new value using log-random walk
+      G_prop <- G
+      G_prop[j] <- abs(rnorm(1, mean = G[j], sd = proposal_sd))
+
+      # Compute transition matrices under G and G_prop
+      P_loglik <- function(Gvec) {
+        G12 <- Gvec[1]; G13 <- Gvec[2]; G23 <- Gvec[3]
+        s <- G12 / (G12 + G13 - G23)
+        P <- matrix(0, 2, 3)
+        P[1,1] <- exp(-(G12 + G13) * t_obs)
+        P[1,2] <- s * exp(-G23 * t_obs) * (1 - exp(-(G12 + G13 - G23) * t_obs))
+        P[1,3] <- 1 - P[1,1] - P[1,2]
+        P[2,1] <- 0
+        P[2,2] <- exp(-G23 * t_obs)
+        P[2,3] <- 1 - P[2,2]
+        sum(dmultinom(r[1,], prob = P[1,], log = TRUE)) +
+          sum(dmultinom(r[2,], prob = P[2,], log = TRUE))
+      }
+
+      # Log prior: gamma(a0, b0)
+      log_prior <- function(g) dgamma(g, a0, b0, log = TRUE)
+
+      log_post_current <- P_loglik(G) + sum(log_prior(G))
+      log_post_proposed <- P_loglik(G_prop) + sum(log_prior(G_prop))
+
+      log_accept_ratio <- log_post_proposed - log_post_current
+      if (log(runif(1)) < log_accept_ratio) {
+        G <- G_prop
+      }
+    }
+
+    samples[iter, ] <- G
+  }
+
+  as.data.frame(samples)
+}
+
+```
+
+Run and Inspect Posterior
+
+```{r}
+set.seed(42)
+posterior <- gibbs_sampler(r, n, t_obs = 2, n_iter = 5000)
+
+# Visualize
+posterior %>%
+  pivot_longer(everything(), names_to = "Parameter", values_to = "Value") %>%
+  ggplot(aes(x = Value)) +
+  geom_density(fill = "cornflowerblue", alpha = 0.6) +
+  facet_wrap(~ Parameter, scales = "free") +
+  labs(title = "Posterior Distributions from Custom Gibbs Sampler")
+
+```
+
+## VECTORIZED SAMPLER
+
+
+```{r}
+gibbs_sampler <- function(r, n, t_obs = 2, n_iter = 5000, init_vals = c(0.5, 0.5, 0.5),
+                          proposal_sd = rep(0.1, 3), adapt_start = 1000) {
+  n_params <- length(init_vals)
+  samples <- matrix(NA, nrow = n_iter, ncol = n_params)
+  colnames(samples) <- c("G[1,2]", "G[1,3]", "G[2,3]")
+  acceptance <- numeric(n_params)
+  G <- init_vals
+
+  log_likelihood <- function(Gvec) {
+    G12 <- Gvec[1]; G13 <- Gvec[2]; G23 <- Gvec[3]
+    if (any(c(G12, G13, G23) <= 0) || G23 >= (G12 + G13)) return(-Inf)
+    s <- G12 / (G12 + G13 - G23)
+    P <- matrix(0, 2, 3)
+    P[1,1] <- exp(-(G12 + G13) * t_obs)
+    P[1,2] <- s * exp(-G23 * t_obs) * (1 - exp(-(G12 + G13 - G23) * t_obs))
+    P[1,3] <- 1 - P[1,1] - P[1,2]
+    P[2,1] <- 0
+    P[2,2] <- exp(-G23 * t_obs)
+    P[2,3] <- 1 - P[2,2]
+    ll <- sum(dmultinom(r[1,], prob = P[1,], log = TRUE)) +
+          sum(dmultinom(r[2,], prob = P[2,], log = TRUE))
+    return(ll)
+  }
+
+  log_prior <- function(g) sum(dgamma(g, shape = 0.1, rate = 0.1, log = TRUE))
+
+  for (i in 1:n_iter) {
+    for (j in 1:n_params) {
+      G_prop <- G
+      G_prop[j] <- abs(rnorm(1, mean = G[j], sd = proposal_sd[j]))
+
+      log_acc <- log_likelihood(G_prop) + log_prior(G_prop) -
+                 log_likelihood(G) - log_prior(G)
+
+      if (log(runif(1)) < log_acc) {
+        G[j] <- G_prop[j]
+        if (i > adapt_start) acceptance[j] <- acceptance[j] + 1
+      }
+
+      # Optional: adaptive tuning
+      if (i %% 100 == 0 && i >= adapt_start && i <= adapt_start + 2000) {
+        acc_rate <- acceptance[j] / 100
+        if (acc_rate < 0.2) proposal_sd[j] <- proposal_sd[j] * 0.9
+        if (acc_rate > 0.5) proposal_sd[j] <- proposal_sd[j] * 1.1
+        acceptance[j] <- 0
+      }
+    }
+    samples[i, ] <- G
+  }
+
+  return(as.data.frame(samples))
+}
+
+```
+
+
+Run and Summarize
+
+```{r}
+set.seed(42)
+posterior <- gibbs_sampler(r, n, t_obs = 2, n_iter = 5000)
+
+# Posterior visualization
+library(tidyr)
+library(ggplot2)
+
+posterior_long <- posterior %>%
+  pivot_longer(everything(), names_to = "Parameter", values_to = "Value")
+
+ggplot(posterior_long, aes(x = Value)) +
+  geom_density(fill = "tomato", alpha = 0.6) +
+  facet_wrap(~Parameter, scales = "free", ncol = 3) +
+  labs(title = "Posterior Distributions (Gibbs Sampler)", x = "Value", y = "Density")
+
+```
+
+Credible Intervals
+
+```{r}
+posterior %>%
+  pivot_longer(everything(), names_to = "Parameter", values_to = "Value") %>%
+  group_by(Parameter) %>%
+  summarise(
+    `2.5%` = quantile(Value, 0.025),
+    Median = median(Value),
+    `97.5%` = quantile(Value, 0.975),
+    .groups = "drop"
+  )
+
+```
+
+Credible intervals
+
+```{r}
+compute_probs <- function(G12, G13, G23, t = 2) {
+  s <- G12 / (G12 + G13 - G23)
+  P11 <- exp(-(G12 + G13) * t)
+  P12 <- s * exp(-G23 * t) * (1 - exp(-(G12 + G13 - G23) * t))
+  P13 <- 1 - P11 - P12
+  P22 <- exp(-G23 * t)
+  P23 <- 1 - P22
+  tibble(`P[1,1]` = P11, `P[1,2]` = P12, `P[1,3]` = P13,
+         `P[2,2]` = P22, `P[2,3]` = P23)
+}
+
+# Add transition probabilities to posterior
+posterior_probs <- compute_probs(
+  posterior$`G[1,2]`, posterior$`G[1,3]`, posterior$`G[2,3]`
+)
+posterior_augmented <- bind_cols(posterior, posterior_probs)
+```
+
+```{r}
+summary_df <- posterior_augmented %>%
+  pivot_longer(everything(), names_to = "Parameter", values_to = "Value") %>%
+  group_by(Parameter) %>%
+  summarise(
+    `2.5%` = quantile(Value, 0.025),
+    Median = median(Value),
+    `97.5%` = quantile(Value, 0.975),
+    .groups = "drop"
+  ) %>%
+  arrange(Parameter)
+
+print(summary_df)
+
+```
+
+Here's a clean visualization of the posterior distributions for the estimated transition probabilities from your Gibbs sampler, using the posterior_augmented data we created earlier:
+
+```{r}
+library(ggplot2)
+library(tidyr)
+
+# Gather transition probabilities
+posterior_augmented %>%
+  select(starts_with("P[")) %>%
+  pivot_longer(everything(), names_to = "Transition", values_to = "Probability") %>%
+  ggplot(aes(x = Probability)) +
+  geom_density(fill = "lightseagreen", alpha = 0.6) +
+  facet_wrap(~ Transition, scales = "free", ncol = 3) +
+  labs(title = "Posterior Distributions of Transition Probabilities at t = 2",
+       x = "Probability", y = "Density") +
+  theme_minimal()
+```
+
+Define the Source State for Each Transition
+Since transition probabilities originate from specific starting states (State 1 or State 2), we can group them visually by color to reflect their source.
+
+```{r}
+# Reshape with color info
+posterior_augmented %>%
+  select(starts_with("P[")) %>%
+  pivot_longer(everything(), names_to = "Transition", values_to = "Probability") %>%
+  mutate(Source = case_when(
+    grepl("^P\\[1,", Transition) ~ "From State 1",
+    grepl("^P\\[2,", Transition) ~ "From State 2",
+    TRUE ~ "Other"
+  )) -> df_probs
+
+```
+
+Plot with Color by Source State
+
+```{r}
+ggplot(df_probs, aes(x = Probability, fill = Source, color = Source)) +
+  geom_density(alpha = 0.5) +
+  facet_wrap(~ Transition, scales = "free", ncol = 3) +
+  labs(
+    title = "Posterior Distributions of Transition Probabilities",
+    subtitle = "Color-Coded by Starting State",
+    x = "Probability", y = "Density"
+  ) +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Dark2") +
+  scale_color_brewer(palette = "Dark2")
+
+```
+
+
+Survival curves
+
+```{r}
+# Define time settings
+time_horizon <- 20       # in years
+dt <- 0.25               # interval (e.g. quarterly)
+steps <- time_horizon / dt
+
+```
+
+Run Simulations Based on Time Parameter
+If you’ve already got G_draws (from either JAGS or your Gibbs sampler), you can now pass these values into your updated simulation engine:
+
+```{r}
+# Run simulations from each starting state
+sim_state1 <- simulate_survival_from(G_draws, 1, steps = steps, dt = dt)
+sim_state2 <- simulate_survival_from(G_draws, 2, steps = steps, dt = dt)
+sim_state3 <- simulate_survival_from(G_draws, 3, steps = steps, dt = dt)
+
+```
+
+Build survival summary
+
+```{r}
+summarize_survival <- function(sim_list, label) {
+  arr <- abind::abind(sim_list, along = 3)
+  surv_matrix <- apply(arr[, 1:2, ], c(1, 3), sum)  # States 1 & 2 = survival
+  df <- as.data.frame(t(surv_matrix))
+  colnames(df) <- paste0("T_", seq(0, time_horizon, by = dt))
+  df %>%
+    pivot_longer(everything(), names_to = "Time", values_to = "Survival") %>%
+    mutate(Time = as.numeric(sub("T_", "", Time)), Start = label)
+}
+
+df_surv <- bind_rows(
+  summarize_survival(sim_state1, "Start in State 1"),
+  summarize_survival(sim_state2, "Start in State 2"),
+  summarize_survival(sim_state3, "Start in State 3")
+)
+
+surv_summary <- df_surv %>%
+  group_by(Start, Time) %>%
+  summarise(
+    lower = quantile(Survival, 0.025),
+    median = median(Survival),
+    upper = quantile(Survival, 0.975),
+    .groups = "drop"
+  )
+```
+
+Plot the Survival Curves
+```{r}
+ggplot(surv_summary, aes(x = Time, y = median, color = Start, fill = Start)) +
+  geom_line(size = 1.1) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.3, color = NA) +
+  labs(
+    title = paste("Survival Curves over", time_horizon, "Years"),
+    x = "Time (years)", y = "Probability in States 1 or 2"
+  ) +
+  theme_minimal()
+
+```
+
+An animated diagram with:
+
+Circles for each state, whose size grows or shrinks based on the simulated proportion in that state
+
+Arrows to represent transition paths
+
+A frame for each time step showing the dynamic evolution
+
+```{r}
+# Install if needed
+#install.packages(c("gganimate", "ggforce"))
+library(ggplot2)
+library(gganimate)
+library(ggforce)
+library(dplyr)
+library(tidyr)
+```
+
+
+```{r}
+
+# --- Simulated mean trajectory ---
+# Assuming you already have simulation_results (list of matrices from simulate_system)
+sim_array <- abind(simulation_results, along = 3)
+mean_traj <- apply(sim_array, c(1, 2), mean)
+colnames(mean_traj) <- c("State 1", "State 2", "State 3")
+time_vec <- seq(0, nrow(mean_traj) - 1) * dt
+
+# --- State layout ---
+state_positions <- data.frame(
+  State = c("State 1", "State 2", "State 3"),
+  x = c(1, 3, 2),
+  y = c(3, 3, 1)
+)
+
+# --- Format data for animation ---
+df_anim <- as.data.frame(mean_traj) %>%
+  mutate(Time = seq(0, (nrow(mean_traj) - 1) * dt, by = dt)) %>%
+  pivot_longer(cols = -Time, names_to = "State", values_to = "Prob") %>%
+  left_join(state_positions, by = "State")
+
+
+
+# --- Transition arcs (static) ---
+
+transitions <- data.frame(
+  from = c("State 1", "State 1", "State 2"),
+  to   = c("State 2", "State 3", "State 3")
+) %>%
+  left_join(state_positions, by = c("from" = "State")) %>%
+  rename(x_start = x, y_start = y) %>%
+  left_join(state_positions, by = c("to" = "State")) %>%
+  rename(x_end = x, y_end = y)
+
+# --- Animate ---
+p <- ggplot() +
+  # Arrows
+  geom_segment(data = transitions,
+             aes(x = x_start, y = y_start, xend = x_end, yend = y_end),
+             arrow = arrow(length = unit(0.2, "cm")), color = "gray50", size = 1) +
+  # Nodes
+  geom_point(data = df_anim,
+             aes(x = x, y = y, size = Prob, fill = State),
+             shape = 21, color = "black", stroke = 1.2) +
+  # Labels
+  geom_text(data = df_anim, aes(x = x, y = y, label = State), vjust = -2, size = 5) +
+  scale_size(range = c(5, 30)) +
+  theme_void() +
+  theme(legend.position = "none") +
+  transition_time(Time) +
+  labs(title = "Markov Chain State Evolution | Time: {frame_time} years")
+
+# Render animation
+animate(p, fps = 5, duration = 8, width = 600, height = 500, renderer = gifski_renderer())
+
+```
+Refined plot
+
+
+
+
+```{r}
+# Required packages
+# install.packages(c("ggplot2", "gganimate", "ggforce", "abind"))
+# library(ggplot2)
+# library(gganimate)
+# library(ggforce)
+# library(abind)
+# library(dplyr)
+# library(tidyr)
+
+# Simulation array: simulation_results is a list of matrices [time × states]
+sim_array <- abind::abind(simulation_results, along = 3)
+mean_traj <- apply(sim_array, c(1, 2), mean)  # [time × states]
+colnames(mean_traj) <- c("State 1", "State 2", "State 3")
+
+# Time vector
+time_horizon <- (nrow(mean_traj) - 1) * dt
+time_vec <- seq(0, time_horizon, by = dt)
+
+# Layout for states (tight triangle)
+
+state_positions <- data.frame(
+  State = c("State 1", "State 2", "State 3"),
+  x = c(5, 5.1, 5.2),
+  y = c(5, 5.1, 5))
+
+
+
+
+# Format for animation
+df_anim <- as.data.frame(mean_traj) %>%
+  mutate(Time = time_vec) %>%
+  pivot_longer(cols = -Time, names_to = "State", values_to = "Prob") %>%
+  left_join(state_positions, by = "State")
+
+# Static transitions between states
+
+
+# Add a curvature column to force outward curves
+
+transitions <- data.frame(
+  from = c("State 1", "State 1", "State 2"),
+  to   = c("State 2", "State 3", "State 3")
+) %>%
+  left_join(state_positions, by = c("from" = "State")) %>%
+  rename(x_start = x, y_start = y) %>%
+  left_join(state_positions, by = c("to" = "State")) %>%
+  rename(x_end = x, y_end = y)
+
+
+
+# Adjust curves to land at edge of circles
+offset <- 0.3
+transitions <- transitions %>%
+  rowwise() %>%
+  mutate(
+    dx = x_end - x_start,
+    dy = y_end - y_start,
+    dist = sqrt(dx^2 + dy^2),
+    ux = dx / dist,
+    uy = dy / dist,
+    x0 = x_start + offset * ux,
+    y0 = y_start + offset * uy,
+    x1 = x_end - offset * ux,
+    y1 = y_end - offset * uy
+  )
+
+# Plot animation
+p <- ggplot() +
+  # Arrows
+  geom_segment(data = transitions,
+               aes(x = x_start, y = y_start, xend = x_end, yend = y_end),
+               arrow = arrow(length = unit(0.25, "cm")),
+               color = "gray50", size = 1.1) +
+  # Circles
+  geom_point(data = df_anim,
+             aes(x = x, y = y, size = Prob, fill = State),
+             shape = 21, stroke = 1.2, color = "black") +
+  # Labels
+  geom_text(data = df_anim,
+            aes(x = x, y = y, label = State),
+            vjust = -2, size = 5) +
+  scale_size(range = c(10, 40)) +
+  scale_fill_brewer(palette = "Dark2") +
+  theme_void() +
+  theme(legend.position = "none") +
+  transition_time(Time) +
+  labs(title = "Markov Chain Dynamics | Time = {frame_time} years")
+
+
+
+```
+
+```{r}
+animate(p, fps = 5, duration = 8, width = 600, height = 500, renderer = gifski_renderer())
+
+```
+
