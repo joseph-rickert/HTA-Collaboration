@@ -1017,7 +1017,7 @@ r[i, 1:4] ~ dmulti(P[i, 1:4], n[i]). So essentially, each observed row r[i, ] re
 Let’s break down what JAGS sees under the hood:
 
 | Component |	Role in Linking Data to Parameters |
-------------------------------------------------------
+| --------- | ---------------------------------- |
 | lambda_ij |	Model parameters sampled from priors (e.g., dgamma) |
 | Symbolic expressions |	Use lambda_ij and u to compute P[i,j] |
 | P[i,j] | Probabilities for transitioning from state i to j |

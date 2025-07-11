@@ -974,11 +974,11 @@ Initializing model</code></pre>
 <span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>P</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>           [,1]      [,2]        [,3]        [,4]
-[1,] 0.80739895 0.1864868 0.005501582 0.002935902
-[2,] 0.05450863 0.9475489 0.006251537 0.006645703
-[3,] 0.02131841 0.7895108 0.172824147 0.018216869
-[4,] 0.00000000 0.0000000 0.000000000 1.000000000</code></pre>
+<pre><code>           [,1]      [,2]        [,3]         [,4]
+[1,] 0.81125137 0.1863032 0.001804828 0.0006985952
+[2,] 0.05372980 0.9339298 0.006988890 0.0070376900
+[3,] 0.02747956 0.8489282 0.114556156 0.0203314554
+[4,] 0.00000000 0.0000000 0.000000000 1.0000000000</code></pre>
 </div>
 <details>
 <summary>Show the code</summary>
@@ -986,7 +986,7 @@ Initializing model</code></pre>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>rowsum_P</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] 1.002323 1.014955 1.001870 1.000000</code></pre>
+<pre><code>[1] 1.000058 1.001686 1.011295 1.000000</code></pre>
 </div>
 </div>
 <p>This code constructs the Generator matrix for the Markov, which contains the process rates, lambda. Rows of the generator matrix should sum to 0.</p>
@@ -999,11 +999,11 @@ Initializing model</code></pre>
 <span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>Lambda</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>            [,1]       [,2]        [,3]         [,4]
-[1,] -2.97844061  0.9816193  1.00150304  0.995318241
-[2,]  0.08072112 -0.1075943  0.02014915  0.006724038
-[3,]  1.00410931  1.6184342 -2.65235426  0.029810715
-[4,]  0.99785965  0.9955950  1.00871109 -2.978440609</code></pre>
+<pre><code>            [,1]        [,2]        [,3]         [,4]
+[1,] -2.21147003  0.21655653  0.98876420  1.006149298
+[2,]  0.06224768 -0.09485444  0.02567102  0.006935737
+[3,]  1.01201027  1.80947384 -2.85673033  0.035246218
+[4,]  1.01017738  1.00762533  1.00930181 -2.211470028</code></pre>
 </div>
 <details>
 <summary>Show the code</summary>
@@ -1019,7 +1019,7 @@ Initializing model</code></pre>
 <span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>rowsum_Lambda</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] -1.110223e-16 -3.469447e-18  2.428613e-16  2.372517e-02</code></pre>
+<pre><code>[1] 1.110223e-16 8.673617e-19 0.000000e+00 8.156345e-01</code></pre>
 </div>
 </div>
 <p>This code constructs the matrix p of normalized transition probabilities matrix. These were computed by <code>JAGS</code> as a check on the stabiliy of the model. P and p should agree fairly closely.</p>
@@ -1054,19 +1054,19 @@ Initializing model</code></pre>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>  P[1,1] P[1,2] P[1,3] P[1,4] P[2,1] P[2,2] P[2,3] P[2,4] P[3,1] P[3,2] P[3,3]
-1  0.783  0.216  0.001  0.001  0.050  0.939  0.004  0.008  0.026  0.820  0.155
-2  0.794  0.203  0.002  0.001  0.059  0.932  0.006  0.006  0.032  0.929  0.051
-3  0.822  0.175  0.002  0.001  0.051  0.939  0.007  0.006  0.028  0.965  0.024
-4  0.810  0.187  0.002  0.001  0.045  0.943  0.008  0.006  0.024  0.918  0.070
-5  0.824  0.173  0.002  0.001  0.046  0.944  0.006  0.007  0.025  0.964  0.024
-6  0.825  0.172  0.003  0.001  0.058  0.931  0.008  0.006  0.031  0.947  0.039
+1  0.819  0.178  0.002  0.001  0.055  0.930  0.008  0.010  0.029  0.909  0.067
+2  0.823  0.174  0.002  0.000  0.062  0.931  0.006  0.004  0.033  0.954  0.027
+3  0.827  0.170  0.002  0.001  0.050  0.940  0.007  0.006  0.027  0.930  0.052
+4  0.822  0.175  0.003  0.001  0.053  0.935  0.009  0.006  0.029  0.930  0.057
+5  0.813  0.184  0.002  0.000  0.055  0.937  0.006  0.004  0.030  0.956  0.030
+6  0.805  0.192  0.002  0.001  0.056  0.930  0.005  0.011  0.030  0.916  0.060
   P[3,4] P[4,1] P[4,2] P[4,3] P[4,4]
-1  0.004      0      0      0      1
-2  0.003      0      0      0      1
-3  0.003      0      0      0      1
-4  0.003      0      0      0      1
-5  0.004      0      0      0      1
-6  0.003      0      0      0      1</code></pre>
+1  0.011      0      0      0      1
+2  0.004      0      0      0      1
+3  0.006      0      0      0      1
+4  0.004      0      0      0      1
+5  0.003      0      0      0      1
+6  0.007      0      0      0      1</code></pre>
 </div>
 <details>
 <summary>Show the code</summary>
@@ -1082,19 +1082,19 @@ Initializing model</code></pre>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>  lambda11 lambda12 lambda13 lambda14 lambda21 lambda22 lambda23 lambda24
-1   -0.262    0.253    0.006    0.003    0.058   -0.079    0.012    0.008
-2  -11.408    0.239   11.168    0.001    0.069   -0.101    0.026    0.006
-3   -5.237    0.202    0.001    5.033    0.059   -0.101    0.036    0.006
-4   -1.014    0.217    0.000    0.797    0.052   -0.092    0.034    0.006
-5   -0.223    0.199    0.024    0.000    0.053   -0.091    0.031    0.007
-6   -0.847    0.200    0.647    0.000    0.067   -0.113    0.040    0.006
+1  -15.104    0.206   14.897    0.000    0.063   -0.109    0.035    0.010
+2   -0.202    0.202    0.000    0.000    0.071   -0.107    0.031    0.005
+3   -0.196    0.195    0.000    0.000    0.058   -0.095    0.031    0.006
+4   -2.244    0.202    1.629    0.413    0.062   -0.109    0.041    0.006
+5   -0.919    0.214    0.705    0.000    0.064   -0.102    0.034    0.005
+6   -1.525    0.224    0.001    1.299    0.065   -0.099    0.023    0.011
   lambda31 lambda32 lambda33 lambda34 lambda41 lambda42 lambda43
-1    0.019    1.712   -1.730        0    0.000    0.000    0.354
-2    0.002    2.052   -2.053        0    0.000    6.159    0.027
-3    0.167    2.124   -2.292        0    0.045    0.007    0.001
-4    0.000    2.002   -2.002        0    0.000    0.000    0.000
-5    0.008    2.124   -2.132        0    0.000    0.000    1.377
-6    0.000    2.087   -2.087        0    0.001    0.486    0.012</code></pre>
+1    3.268    1.997   -5.278    0.013    0.066    0.223    0.000
+2    0.752    2.113   -2.869    0.004    0.036    0.000    0.294
+3    0.000    2.044   -2.051    0.007    0.000    0.332    0.027
+4    0.015    2.037   -2.054    0.002    0.340    0.000    0.011
+5    0.003    2.108   -2.113    0.002    0.000    0.000    0.000
+6    0.000    2.025   -2.027    0.002    0.003    0.000    1.380</code></pre>
 </div>
 </div>
 </section>
@@ -1174,17 +1174,39 @@ Initializing model</code></pre>
 <section id="internal-mechanics-of-association-in-jags" class="level4">
 <h4 class="anchored" data-anchor-id="internal-mechanics-of-association-in-jags">Internal Mechanics of Association in JAGS</h4>
 <p>Let’s break down what JAGS sees under the hood:</p>
-</section>
-</section>
-</section>
-<section id="component-role-in-linking-data-to-parameters" class="level2">
-<h2 class="anchored" data-anchor-id="component-role-in-linking-data-to-parameters">| Component | Role in Linking Data to Parameters |</h2>
-<p>lambda_ij | Model parameters sampled from priors (e.g., dgamma) |<br>
-Symbolic expressions | Use lambda_ij and u to compute P[i,j] |<br>
-P[i,j] | Probabilities for transitioning from state i to j |<br>
-r[i,1:4] | Observed counts used in the likelihood |<br>
-n[i] | Total transitions from state i (sum of r[i,]) |</p>
+<table class="table">
+<thead>
+<tr class="header">
+<th>Component</th>
+<th>Role in Linking Data to Parameters</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>lambda_ij</td>
+<td>Model parameters sampled from priors (e.g., dgamma)</td>
+</tr>
+<tr class="even">
+<td>Symbolic expressions</td>
+<td>Use lambda_ij and u to compute P[i,j]</td>
+</tr>
+<tr class="odd">
+<td>P[i,j]</td>
+<td>Probabilities for transitioning from state i to j</td>
+</tr>
+<tr class="even">
+<td>r[i,1:4]</td>
+<td>Observed counts used in the likelihood</td>
+</tr>
+<tr class="odd">
+<td>n[i]</td>
+<td>Total transitions from state i (sum of r[i,])</td>
+</tr>
+</tbody>
+</table>
 <p><code>JAGS</code> makes this linkage: → lambda_ij → used in computing P<a href="u">i,j</a> → used in dmulti(P[i, ], n[i]) → compared against r[i, ] during inference. During sampling, JAGS tweaks the values of lambda_ij to make the resulting P[i,j] better match the observed data r.</p>
+</section>
+</section>
 <section id="how-does-rjags-estimates-pij-indirectly-via-pij" class="level3">
 <h3 class="anchored" data-anchor-id="how-does-rjags-estimates-pij-indirectly-via-pij">How does rjags estimates P[i,j] indirectly via p[i,j]</h3>
 <p>Row Normalization: The model computes row_sum[i] &lt;- sum(P[i,1:4]) and normalizes i.e:p[i,j] &lt;- max(P[i,j] / row_sum[i], 0.000001) These p[i,j] values are guaranteed to be non-negative and sum close to one, making them valid inputs for the dmulti(…) likelihood.</p>
