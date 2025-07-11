@@ -845,7 +845,7 @@ This code uses the `coda.samples` function to draw samples from the JAGS model. 
 #| code-summary: "Show the code"
 
 
-samples <- coda.samples(jags_model_78,
+samples <- coda.samples(jags_model_7_10,
   variable.names = c(
     "lambda11", "lambda12", "lambda13", "lambda14", 
     "lambda21", "lambda22","lambda23", "lambda24", 
@@ -1016,13 +1016,13 @@ r[i, 1:4] ~ dmulti(P[i, 1:4], n[i]). So essentially, each observed row r[i, ] re
 #### Internal Mechanics of Association in JAGS
 Let’s break down what JAGS sees under the hood:
 
-|Component|	|Role in Linking Data to Parameters|
+| Component |	Role in Linking Data to Parameters |
 ------------------------------------------------------
-|lambda_ij |	Model parameters sampled from priors (e.g., dgamma)|
-|Symbolic expressions |	Use lambda_ij and u to compute P[i,j]|
-|P[i,j] | Probabilities for transitioning from state i to j|
-|r[i,1:4] |	Observed counts used in the likelihood|
-|n[i]	|Total transitions from state i (sum of r[i,])|
+| lambda_ij |	Model parameters sampled from priors (e.g., dgamma) |
+| Symbolic expressions |	Use lambda_ij and u to compute P[i,j] |
+| P[i,j] | Probabilities for transitioning from state i to j |
+| r[i,1:4] |	Observed counts used in the likelihood |
+| n[i]	| Total transitions from state i (sum of r[i,]) |
 
 `JAGS` makes this linkage: → lambda_ij → used in computing P[i,j](u) → used in dmulti(P[i, ], n[i]) → compared against r[i, ] during inference. During sampling, JAGS tweaks the values of lambda_ij to make the resulting P[i,j] better match the observed data r.
 
