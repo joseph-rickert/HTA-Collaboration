@@ -1,0 +1,157 @@
+---
+title: "Solution to NMA 4 state asthma model"
+author: Bob Horton
+date: July 11, 2025
+
+format:
+  html:
+    embed-resources: true
+---
+
+# Bob To Do
+	Figure out whether we can get reasonably stable results by changing number of burnin cycles or whatever. Use Wasserstein or KL distance from binomial.
+
+
+This document implents Joe rickert's `JAGS` model for the 4-state network meta-analysis model described in the book [Network Meta-Analysis for Decision-Making](https://www.agropustaka.id/wp-content/uploads/2020/04/agropustaka.id_buku_Network-Meta-Analysis-for-Decision-Making.pdf) by Sofia Dias, A.E. Ades, Nicky J. Welton, Jeroen P. Jansen, and Alexander J. Sutton.
+
+
+The model relies on symbolic solutions to the Kolmogorov forward equations for the transition probabilities for the 4-state model which have previously been derived using the symbolic computations capabilities of the `Julia` language. The code contains some diagnostic features to check that the estimated process rates for each row of the generator matrix for the continuous-time chain sum to 0.
+
+
+## Libraries
+
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Show the code"
+library(rjags) # switch to jagsUI for parallel chains
+library(jagsUI)
+library(ggplot2)
+library(coda)
+library(dplyr)
+library(tidyr)
+library(parallel)
+
+```
+
+
+
+# Test chains against each other
+
+It looks like the 'multimodal' results we sometimes see in Joe's model are from the different chains having different distributions, but the results within a single chain often appear to be unimodal. Sometimes the densities are spread far beyond the range of 0 to 1.
+
+Note that I was not able to get the iniial values to work.
+
+```{r cross_chain_comparisons}
+#| fig-width: 12  # Image file width in inches
+#| fig-height: 8
+#| out-width: "100%" # Display width as a percentage of the output document's width
+
+N_BURNIN <- 10000
+MODEL_FILE <- "4state_7_10.bug"
+N_ADAPT <- 100
+N_CHAINS <- 12
+N_CORES <- detectCores(all.tests = FALSE, logical = TRUE)
+
+
+r <- matrix(c(310,   70,  2,0,
+               96, 1683, 11, 13,
+                1,   11,  1, 0,
+                0,    0,  0, 94), nrow=4, byrow=TRUE)
+
+n <- rowSums(r)
+
+
+data_list <- list(
+  r = r,
+  n = n,
+  u = 1)
+
+
+ inits <- list(lambda11 = 0,
+               lambda12 = 0.1,
+               lambda13 = 0.1,
+               lambda14 = 0.1,
+               lambda21 = 0.1, 
+               lambda22 = 0,
+               lambda23 = 0.1, 
+               lambda24 = 0.1, 
+               lambda31 = 0.1,
+               lambda32 = 0.1,
+               lambda33 = 0,
+               lambda34 = 0.1,
+               lambda41 = 0,
+               lambda42 = 0,
+               lambda43 = 0,
+               lambda44 = 0)
+
+
+	
+test_burnin <- function(n_burnin, show_plots=FALSE){
+	n_samples <- 10000
+	
+	parameters_to_save <- c("P[1,1]", "P[1,2]", "P[1,3]", "P[1,4]",
+												  "P[2,1]", "P[2,2]", "P[2,3]", "P[2,4]",
+												  "P[3,1]", "P[3,2]", "P[3,3]", "P[3,4]")
+	
+	initial_values <- 1:N_CHAINS %>% lapply(function(i) inits)
+	
+	jags_results <- jags(data = data_list,
+					            # inits = initial_values, # Error in node lambda11 Cannot set value of non-variable node
+											parameters.to.save = parameters_to_save,
+					            model.file = MODEL_FILE,
+					            n.chains = N_CHAINS,
+					            n.adapt = N_ADAPT,
+					            n.iter = n_burnin + n_samples,
+					            n.burnin = n_burnin,
+											parallel=TRUE, n.cores=N_CORES)
+		  
+	
+	samples <- jags_results$samples
+	
+	df_long <- 1:length(samples) %>% lapply(function(chain) {
+	  as.data.frame(samples[[chain]]) %>%
+	    mutate(
+	      iteration = row_number(),
+	      chain = factor(chain)
+	    )
+	}) %>% 
+		bind_rows %>%
+	  pivot_longer(cols = -c(iteration, chain),
+	               names_to = "parameter",
+	               values_to = "value") %>%
+		filter(parameter %in% parameters_to_save) # drop deviance
+	
+
+		g <- df_long %>% 
+			ggplot(aes(x = value, fill = chain)) +
+			  geom_density(alpha = 0.5) +
+				facet_grid(parameter ~ ., scales="free_y") +
+			  labs(title = "Posterior Densities by Chain", x = "Value", y = "Density") + 
+				theme_minimal()
+		
+		plot(g + labs(subtitle="(no x limits)"))
+		plot(g + coord_cartesian(xlim = c(0, 1)) + labs(subtitle="(x limits: [0:1])") )
+	
+	p_ranges <- df_long %>% 
+		group_by(parameter, chain) %>% 
+		summarize(median_value = median(value)) %>%
+		group_by(parameter) %>%
+		summarize(median_range = max(median_value) - min(median_value))
+	
+	max(p_ranges$median_range)
+}
+
+# test_burnin(1000)
+
+run_tests <- function(n_runs, n_burnin){
+	1:n_runs %>% sapply(test_burnin, n_burnin)
+}
+
+run_tests(n_runs=10, n_burnin=N_BURNIN)
+	
+# My plan was to run a range of different n_burnin values, but more burnin cycles doesn't seem to help.
+
+```
+
