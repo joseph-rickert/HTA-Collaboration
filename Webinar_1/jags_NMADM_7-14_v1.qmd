@@ -112,59 +112,59 @@ P[1,2] <- term1_12 + term2_12 + term3_12 + term4_12
 
 
 # ---------- P[1,3] ----------
-term2_13 <- 0.5 * u * u * lambda12 * lambda23
-
-term3a_13 <- -0.5 * u * u * u * lambda12 * lambda12 * lambda23
-term3b_13 <- 0.5 * u * (
-  u * u * (-lambda21 - lambda23 - lambda24) * lambda23 +
-  u * u * lambda23 * (-lambda32 - lambda34)
-) * lambda12
-term3_13  <- (1/3) * (term3a_13 + term3b_13)
-
-inner4a_13 <- -0.5 * u * (term3a_13 + term3b_13) * lambda12
-inner4b_13 <- (1/3) * u * (
-  0.5 * u * u * u * lambda12 * lambda21 * lambda23 +
-  0.5 * u * (
-    u * u * (-lambda21 - lambda23 - lambda24) * lambda23 +
-    u * u * lambda23 * (-lambda32 - lambda34)
-  ) * (-lambda21 - lambda23 - lambda24) +
-  0.5 * u * (
-    u * u * lambda23 * lambda32 +
-    u * u * (-lambda32 - lambda34) * (-lambda32 - lambda34)
-  ) * lambda23
-) * lambda12
-
-term4_13 <- (1/4) * (inner4a_13 + inner4b_13)
-
-P[1,3] <- term2_13 + term3_13 + term4_13
-
-
-# ---------- P[1,4] ----------
-term2_14 <- 0.5 * u * u * lambda12 * lambda24
-
-term3a_14 <- -0.5 * u * u * u * lambda12 * lambda12 * lambda24
-term3b_14 <- 0.5 * u * (
-  u * u * (-lambda21 - lambda23 - lambda24) * lambda24 +
-  u * u * lambda23 * lambda34
-) * lambda12
-term3_14  <- (1/3) * (term3a_14 + term3b_14)
-
-inner4a_14 <- -0.5 * u * (term3a_14 + term3b_14) * lambda12
-inner4b_14 <- (1/3) * u * (
-  0.5 * u * u * u * lambda12 * lambda21 * lambda24 +
-  0.5 * u * (
-    u * u * (-lambda21 - lambda23 - lambda24) * lambda24 +
-    u * u * lambda23 * lambda34
-  ) * (-lambda21 - lambda23 - lambda24) +
-  0.5 * u * (
-    u * u * lambda24 * lambda32 +
-    u * u * (-lambda32 - lambda34) * lambda34
-  ) * lambda23
-) * lambda12
-
-term4_14 <- (1/4) * (inner4a_14 + inner4b_14)
-
-P[1,4] <- term2_14 + term3_14 + term4_14
+# term2_13 <- 0.5 * u * u * lambda12 * lambda23
+# 
+# term3a_13 <- -0.5 * u * u * u * lambda12 * lambda12 * lambda23
+# term3b_13 <- 0.5 * u * (
+#   u * u * (-lambda21 - lambda23 - lambda24) * lambda23 +
+#   u * u * lambda23 * (-lambda32 - lambda34)
+# ) * lambda12
+# term3_13  <- (1/3) * (term3a_13 + term3b_13)
+# 
+# inner4a_13 <- -0.5 * u * (term3a_13 + term3b_13) * lambda12
+# inner4b_13 <- (1/3) * u * (
+#   0.5 * u * u * u * lambda12 * lambda21 * lambda23 +
+#   0.5 * u * (
+#     u * u * (-lambda21 - lambda23 - lambda24) * lambda23 +
+#     u * u * lambda23 * (-lambda32 - lambda34)
+#   ) * (-lambda21 - lambda23 - lambda24) +
+#   0.5 * u * (
+#     u * u * lambda23 * lambda32 +
+#     u * u * (-lambda32 - lambda34) * (-lambda32 - lambda34)
+#   ) * lambda23
+# ) * lambda12
+# 
+# term4_13 <- (1/4) * (inner4a_13 + inner4b_13)
+# 
+# P[1,3] <- term2_13 + term3_13 + term4_13
+# 
+# 
+# # ---------- P[1,4] ----------
+# term2_14 <- 0.5 * u * u * lambda12 * lambda24
+# 
+# term3a_14 <- -0.5 * u * u * u * lambda12 * lambda12 * lambda24
+# term3b_14 <- 0.5 * u * (
+#   u * u * (-lambda21 - lambda23 - lambda24) * lambda24 +
+#   u * u * lambda23 * lambda34
+# ) * lambda12
+# term3_14  <- (1/3) * (term3a_14 + term3b_14)
+# 
+# inner4a_14 <- -0.5 * u * (term3a_14 + term3b_14) * lambda12
+# inner4b_14 <- (1/3) * u * (
+#   0.5 * u * u * u * lambda12 * lambda21 * lambda24 +
+#   0.5 * u * (
+#     u * u * (-lambda21 - lambda23 - lambda24) * lambda24 +
+#     u * u * lambda23 * lambda34
+#   ) * (-lambda21 - lambda23 - lambda24) +
+#   0.5 * u * (
+#     u * u * lambda24 * lambda32 +
+#     u * u * (-lambda32 - lambda34) * lambda34
+#   ) * lambda23
+# ) * lambda12
+# 
+# term4_14 <- (1/4) * (inner4a_14 + inner4b_14)
+# 
+# P[1,4] <- term2_14 + term3_14 + term4_14
 
 # ---------- P[2,1] ----------
 # First-order term
@@ -400,52 +400,52 @@ P[2,4] <- term1_24 + term2_24 + term3_24 + term4_24 + term5_24
 
 # ---------- P[3,1] ----------
 
-# Second-order term
-term2_31 <- 0.5 * u * u * lambda21 * lambda32
-
-# Third-order terms
-term3a_31 <- 0.5 * u * u * u * lambda21 * lambda32 * (-lambda32 - lambda34)
-term3b_31 <- 0.5 * u * (
-  -u * u * lambda12 * lambda21 + u * u * (-lambda21 - lambda23 - lambda24) * lambda21
-) * lambda32
-term3_31  <- (1/3) * (term3a_31 + term3b_31)
-
-# Fourth-order terms
-sub4a1_31 <- 0.5 * u * u * u * lambda21 * lambda23 * lambda32
-sub4a2_31 <- 0.5 * u * (u * u * lambda12 * lambda12 + u * u * lambda12 * lambda21) * lambda21
-sub4a3_31 <- 0.5 * u * (
-  -u * u * lambda12 * lambda21 + u * u * (-lambda21 - lambda23 - lambda24) * lambda21
-) * (-lambda21 - lambda23 - lambda24)
-inner4a_31 <- (1/3) * u * (sub4a1_31 + sub4a2_31 + sub4a3_31) * lambda32
-
-sub4b1_31 <- term3a_31
-sub4b2_31 <- term3b_31
-inner4b_31 <- (1/3) * u * (sub4b1_31 + sub4b2_31) * (-lambda32 - lambda34)
-
-term4_31 <- (1/4) * (inner4a_31 + inner4b_31)
-
-# Fifth-order terms
-
-## Branch A
-inner5a_31 <- (1/3) * u * (sub4a1_31 + sub4a2_31 + sub4a3_31) * (-lambda21 - lambda23 - lambda24)
-inner5b_31 <- (1/3) * u * (sub4b1_31 + sub4b2_31) * lambda23
-
-sub5a3a_31 <- -0.5 * u * (u * u * lambda12 * lambda12 + u * u * lambda12 * lambda21) * lambda12
-sub5a3b_31 <- 0.5 * u * (
-  -u * u * lambda12 * lambda21 + u * u * (-lambda21 - lambda23 - lambda24) * lambda21
-) * lambda12
-inner5c_31 <- (1/3) * u * (sub5a3a_31 + sub5a3b_31) * lambda21
-
-branchA_31 <- (1/4) * u * (inner5a_31 + inner5b_31 + inner5c_31) * lambda32
-
-## Branch B
-inner5d_31 <- (1/3) * u * (sub4a1_31 + sub4a2_31 + sub4a3_31) * lambda32
-inner5e_31 <- (1/3) * u * (sub4b1_31 + sub4b2_31) * (-lambda32 - lambda34)
-branchB_31 <- (1/4) * u * (inner5d_31 + inner5e_31) * (-lambda32 - lambda34)
-
-term5_31 <- (1/5) * (branchA_31 + branchB_31)
-
-P[3,1] <- term2_31 + term3_31 + term4_31 + term5_31
+# # Second-order term
+# term2_31 <- 0.5 * u * u * lambda21 * lambda32
+# 
+# # Third-order terms
+# term3a_31 <- 0.5 * u * u * u * lambda21 * lambda32 * (-lambda32 - lambda34)
+# term3b_31 <- 0.5 * u * (
+#   -u * u * lambda12 * lambda21 + u * u * (-lambda21 - lambda23 - lambda24) * lambda21
+# ) * lambda32
+# term3_31  <- (1/3) * (term3a_31 + term3b_31)
+# 
+# # Fourth-order terms
+# sub4a1_31 <- 0.5 * u * u * u * lambda21 * lambda23 * lambda32
+# sub4a2_31 <- 0.5 * u * (u * u * lambda12 * lambda12 + u * u * lambda12 * lambda21) * lambda21
+# sub4a3_31 <- 0.5 * u * (
+#   -u * u * lambda12 * lambda21 + u * u * (-lambda21 - lambda23 - lambda24) * lambda21
+# ) * (-lambda21 - lambda23 - lambda24)
+# inner4a_31 <- (1/3) * u * (sub4a1_31 + sub4a2_31 + sub4a3_31) * lambda32
+# 
+# sub4b1_31 <- term3a_31
+# sub4b2_31 <- term3b_31
+# inner4b_31 <- (1/3) * u * (sub4b1_31 + sub4b2_31) * (-lambda32 - lambda34)
+# 
+# term4_31 <- (1/4) * (inner4a_31 + inner4b_31)
+# 
+# # Fifth-order terms
+# 
+# ## Branch A
+# inner5a_31 <- (1/3) * u * (sub4a1_31 + sub4a2_31 + sub4a3_31) * (-lambda21 - lambda23 - lambda24)
+# inner5b_31 <- (1/3) * u * (sub4b1_31 + sub4b2_31) * lambda23
+# 
+# sub5a3a_31 <- -0.5 * u * (u * u * lambda12 * lambda12 + u * u * lambda12 * lambda21) * lambda12
+# sub5a3b_31 <- 0.5 * u * (
+#   -u * u * lambda12 * lambda21 + u * u * (-lambda21 - lambda23 - lambda24) * lambda21
+# ) * lambda12
+# inner5c_31 <- (1/3) * u * (sub5a3a_31 + sub5a3b_31) * lambda21
+# 
+# branchA_31 <- (1/4) * u * (inner5a_31 + inner5b_31 + inner5c_31) * lambda32
+# 
+# ## Branch B
+# inner5d_31 <- (1/3) * u * (sub4a1_31 + sub4a2_31 + sub4a3_31) * lambda32
+# inner5e_31 <- (1/3) * u * (sub4b1_31 + sub4b2_31) * (-lambda32 - lambda34)
+# branchB_31 <- (1/4) * u * (inner5d_31 + inner5e_31) * (-lambda32 - lambda34)
+# 
+# term5_31 <- (1/5) * (branchA_31 + branchB_31)
+# 
+# P[3,1] <- term2_31 + term3_31 + term4_31 + term5_31
 
 # ---------- P[3,2] ----------
 
@@ -670,6 +670,11 @@ term5_34 <- (1/5) * (term5a_34 + term5b_34)
 
 P[3,4] <- term1_34 + term2_34 + term3_34 + term4_34 + term5_34
 
+P[1,3] <- 0
+P[1,4] <- 0
+P[3,1] <- 0
+
+
 # ---------- P[4,j] ---------- 
 P[4,1] <- 0
 P[4,2] <- 0
@@ -686,7 +691,7 @@ P[4,4] <- 1
 
 # ---------- p[1,j] ---------- 
 
-row1_sum <- P[1,1] + P[1,2] + P[1,3] + P[1,4]
+row1_sum <- P[1,1] + P[1,2]
 
 p[1,1] <- max(max(P[1,1] / row1_sum, 0), 0.000001)
 p[1,2] <- max(max(P[1,2] / row1_sum, 0), 0.000001)
@@ -709,7 +714,7 @@ r[2,1:4] ~ dmulti(p[2,1:4], n[2])
 
 # ---------- p[3,j] ---------- 
  
-row3_sum <- P[3,1] + P[3,2] + P[3,3] + P[3,4]
+row3_sum <- P[3,2] + P[3,3] + P[3,4]
 
 
 p[3,1] <- max(max(P[3,1] / row3_sum, 0), 0.000001)
@@ -762,7 +767,7 @@ lambda43 ~ dgamma(0.1, 0.1)
 
 }
 "
-writeLines(model_string, "4state_7_10.bug")
+writeLines(model_string, "4state_7_14.bug")
 ```
 
 ## Run the JAGS Model
@@ -787,18 +792,18 @@ n <- rowSums(r)
 data_list <- list(
   r = r,
   n = n,
-  u = 0.5)
+  u = 1)
 
 
  inits <- list(lambda11 = 0,
                lambda12 = 0.1,
-               lambda13 = 0.1,
-               lambda14 = 0.1,
+               lambda13 = 0,
+               lambda14 = 0,
                lambda21 = 0.1, 
                lambda22 = 0,
                lambda23 = 0.1, 
                lambda24 = 0.1, 
-               lambda31 = 0.1,
+               lambda31 = 0,
                lambda32 = 0.1,
                lambda33 = 0,
                lambda34 = 0.1,
@@ -824,14 +829,14 @@ parameters.to.save = c("lambda11", "lambda12", "lambda13", "lambda14",
                        "p[4,1]", "p[4,2]", "p[4,3]", "p[4,4]"
                        )
 
-jags_model_7_10 <- jags.model(file = "4state_7_10.bug",
+jags_model_7_14 <- jags.model(file = "4state_7_10.bug",
                          data = data_list,
                          n.chains = 3,
                          n.adapt = 100)
                          
 
 # Burn-in
-update(jags_model_7_10, 10000) #Discard these samples
+update(jags_model_7_14, 10000) #Discard these samples
 ``` 
 
 
@@ -885,6 +890,7 @@ colnames(P) <- states
 rownames(P) <- states
 P
 rowsum_P <- rowSums(P)
+names(rowsum_P) <- c("Row1", "Row2", "Row3", "Row4")
 rowsum_P
 ```
 
@@ -903,6 +909,7 @@ rownames(Lambda) <- states
 Lambda
 cat("\n row sums:")
 rowsum_Lambda <- rowSums(Lambda)
+names(rowsum_Lambda) <- c("Row1", "Row2", "Row3", "Row4")
 rowsum_Lambda
 ```
 
@@ -921,6 +928,7 @@ colnames(p) <- states
 rownames(p) <- states
 p
 rowsum_p <- rowSums(p)
+names(rowsum_p) <- c("Row1", "Row2", "Row3", "Row4")
 rowsum_p
 ```
 
@@ -1099,30 +1107,31 @@ P13 <- function(u=u, lambda11, lambda12, lambda13, lambda14,
                 lambda41, lambda42, lambda43, lambda44)  {
 
 term2_13 <- 0.5 * u * u * lambda12 * lambda23
-
+#
 term3a_13 <- -0.5 * u * u * u * lambda12 * lambda12 * lambda23
 term3b_13 <- 0.5 * u * (
   u * u * (-lambda21 - lambda23 - lambda24) * lambda23 +
   u * u * lambda23 * (-lambda32 - lambda34)
-) * lambda12
+ ) * lambda12
 term3_13  <- (1/3) * (term3a_13 + term3b_13)
-
+#
 inner4a_13 <- -0.5 * u * (term3a_13 + term3b_13) * lambda12
-inner4b_13 <- (1/3) * u * (
-  0.5 * u * u * u * lambda12 * lambda21 * lambda23 +
+ inner4b_13 <- (1/3) * u * (
+   0.5 * u * u * u * lambda12 * lambda21 * lambda23 +
   0.5 * u * (
-    u * u * (-lambda21 - lambda23 - lambda24) * lambda23 +
+     u * u * (-lambda21 - lambda23 - lambda24) * lambda23 +
     u * u * lambda23 * (-lambda32 - lambda34)
-  ) * (-lambda21 - lambda23 - lambda24) +
+   ) * (-lambda21 - lambda23 - lambda24) +
   0.5 * u * (
-    u * u * lambda23 * lambda32 +
+     u * u * lambda23 * lambda32 +
     u * u * (-lambda32 - lambda34) * (-lambda32 - lambda34)
   ) * lambda23
-) * lambda12
-
+ ) * lambda12
+#
 term4_13 <- (1/4) * (inner4a_13 + inner4b_13)
 
 res <- term2_13 + term3_13 + term4_13
+
 return(res)
 }
 ```
@@ -1160,6 +1169,7 @@ inner4b_14 <- (1/3) * u * (
 term4_14 <- (1/4) * (inner4a_14 + inner4b_14)
 
 res <- term2_14 + term3_14 + term4_14
+
 return(res)
 }
 
@@ -1480,6 +1490,7 @@ branchB_31 <- (1/4) * u * (inner5d_31 + inner5e_31) * (-lambda32 - lambda34)
 term5_31 <- (1/5) * (branchA_31 + branchB_31)
 
 res <- term2_31 + term3_31 + term4_31 + term5_31
+
 return(res)
 }
 ```
@@ -1851,8 +1862,6 @@ for (i in 1:3) {
 ggplot(df, aes(x = Time, y = Probability, color = Transition)) +
   geom_line(size = 1.1) +
   facet_wrap(~ Row, ncol = 1, scales = "free_y") +
-  theme_minimal(base_size = 14) +
-  scale_color_brewer(palette = "Set1") +
   labs(title = "Evolution of Transition Probabilities Over Time",
        subtitle = "Symbolic CTMC approximation using posterior mean λ values",
        x = "Time (u)", y = "P[i,j](u)")
