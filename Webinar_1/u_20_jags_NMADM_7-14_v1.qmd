@@ -1,9 +1,20 @@
 ---
-title: "Solution to NMA 4 state asthma model"
+title: "Solution to NMA 4 state asthma model with u = 20"
 author: Joseph Rickert
-date: July 11, 2024
+date: July 18, 2024
 format: html
 ---
+
+**This version of the model was run with input time u = 20. Note that the P[i,j] transition probabilities given below are negative and that rows of the P matrix do not sum to one. the model string file is: "4state_7_14.bug".**
+
+        **STW           UTW             X             F**
+**STW 1.225790e+12 -6.846900e+12  0.000000e+00  0.000000e+00**
+**UTW 1.334458e+15 -3.673795e+16  7.633502e+15 -2.514464e+14**
+**X   0.000000e+00 -8.627295e+12 -2.107842e+12  7.808245e+10**
+**F   0.000000e+00  0.000000e+00  0.000000e+00  1.000000e+00**
+       **Row1          Row2          Row3          Row4** 
+**-5.621110e+12 -2.802144e+16 -1.065706e+13  1.000000e+00**
+
 
 This document implents a `JAGS` model for the 4-state network meta-analysis model described in the book [Network Meta-Analysis for Decision-Making](https://www.agropustaka.id/wp-content/uploads/2020/04/agropustaka.id_buku_Network-Meta-Analysis-for-Decision-Making.pdf) by Sofia Dias, A.E. Ades, Nicky J. Welton, Jeroen P. Jansen, and Alexander J. Sutton.
 
