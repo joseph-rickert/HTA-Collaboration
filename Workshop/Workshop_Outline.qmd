@@ -1,0 +1,134 @@
+---
+title: "Outline for a workshop"
+author: Joseph Rickert
+date: July 30, 2025
+format: html
+---
+
+## Multi-State Modeling in Healthcare
+
+### Objectives
+
+-   Model the trajectory of patients as they progress through the treatment of a disease
+-   Estimate the expected amount of time that a patient will spend in various states of health as the disease progresses.
+-   Describe how treatments and other covariates influence disease progression.
+-   Provide a framework for the economic evaluation of treatments and their cost-effectiveness.
+
+### Conceptual Framework
+
+-   Stochastic processes with statistical inference
+-   Our focus: multi-state survival models
+-   Continuous-time Markov chains and semi-markov processes
+
+### Data we will consider
+
+-   Longitudinal data or Panel data (Kalbfleisch & Lawless 1985)
+-   Collected for individuals with interval censoring
+-   Observation times may vary by individual patient
+-   Data aggregated in to state tables
+-   State table: an n x n matrix which indicates the number of times a patient observed to be in state i was found to be in state j at the next observation time.
+
+#### Converting longtidunal into state table data
+
+-   For example: CAV data on page 4 of van den Hout
+
+#### Provide example data sets
+
+### Censoring
+
+-   Left censoring
+-   right censoring
+-   interval censoring
+-   For example: the onset of dementia
+
+### Major Assumptions about data
+
+For continuous time models:
+
+-   Death times are known or right censored
+-   State transitions among living states are interval censored
+
+## Basic Survival Analysis
+
+-   hazard ratios
+-   fundamental equations
+-   Kaplan-Meir curves
+-   time varying covariates
+-   data structures
+
+## Markov Chains
+
+### Discrete Time Markov Chains
+
+#### Standard Theory
+
+-   Markov Property
+-   Characterized by Probability Transition Matrix
+-   Treatment of Time - Time is only indirectly modeled
+-   Chapman-Kolomogorov Equation
+-   Classification of States
+-   Ergodic Behavior
+-   Absorbing Chains
+
+#### Examples of Discrete Time Multi-state Models in R
+
+### Continuous Time Markov Chains
+
+#### Standard Theory
+
+-   Markov Property
+-   Explicit Modeling of Time
+-   Choices for start time: study enrollment, disease diagnosis etc.
+-   Exponential holding times
+-   Characterized by Rate Matrix
+-   Embedded Jump Matrix
+-   Matrix Exponential
+-   Kolmogorov Forward Equation
+-   Kolmogorov Backward Equation
+-   Classification of states
+-   Long term behavior
+-   Absorbing States
+-   Simulating CTMC via Jump Chain and Exponential clocks
+
+#### Examples of Continuous Time Multistate Models in R
+
+#### Solving the Kolmogorov Forward Equations
+
+-   Numeric solutions with Python and Julia
+
+#### Bayesian Estimation
+
+-   Estimating rates from state table data
+-   The simple 3 state model with conjugate priors
+-   Bayesian Estimation with JAGS
+-   Bayesian Estimation with Stan
+
+### Semi-Markov Processes
+
+#### Time Dependent Rate Matrices
+
+-   Parametric models:
+-   Exponential
+-   Weibull
+-   Gompertz
+-   Hybrid
+-   Non-parametric models
+-   Piecewise constant hazards with splines
+-   Using covariates to model hazards and transition rates
+
+#### Examples of Semi-Markov Models with R
+
+-   Frequentist modeling with the `msm` package
+-   Bayesian modeling with the `survextrap` package
+
+## R Packages
+
+[brms](https://cran.r-project.org/package=brms): Implements the capability to fit a full range of Bayesian multivariate, multilevel models using STAN See [Bǔrkner (2017)](https://www.jstatsoft.org/article/view/v080i01).
+
+[heemod](https://cran.r-project.org/package=heemod) : Implements the modelling and reporting features described in Decision Modelling for Health Economic Evaluation \[Briggs, Andrew, et al. (2011)\] and ; Siebert, U. et al. State-Transition Modeling. Medical Decision Making (2012)).
+
+[markovchain](https://cran.r-project.org/package=markovchain): Provides functions for working with discrete time Markov chains.
+
+[msm](https://cran.r-project.org/src/contrib/Archive/msm): Implements likelihood based methods for fitting continuous-time Markov and hidden Markov multi-state models to longitudinal data.
+
+[survextrap](https://cran.r-project.org/package=survextrap): Bayesian parametric survival modeling and extrapolation

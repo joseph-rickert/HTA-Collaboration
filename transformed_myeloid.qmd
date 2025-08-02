@@ -1,0 +1,43 @@
+---
+title: "4-state models"
+format: html
+---
+
+This document transforms the synthetic myeloid data state in the `survival` package into a form that may be useful for multistate modeling. It would be a four state model with two absorbing states. THis exact times of state transitions are known.
+
+## 
+```{r}
+library(survival)
+library(tidyverse)
+```
+
+
+```{r}
+head(myeloid)
+```
+
+
+```{r}
+df <- myeloid   |>
+  mutate(d_time = if_else(death ==1, futime, NA),
+         l_time = if_else(death ==0, futime, NA))
+
+df_long <- df |> 
+  pivot_longer(
+    cols = c(futime, crtime, rltime, d_time, l_time), # Columns to pivot
+    names_to = "states",     # New column for original column names
+    values_to = "time") |>
+    filter(states != "futime") |>
+    filter(!is.na(time)) |>
+    mutate(states =  case_when(
+      states == "crtime" ~ "response",
+      states == "rltime"  ~ "disease",
+      states == "d_time" ~ "dead",
+      states == "l_time" ~ "censored")) |>
+      group_by(id) |>
+      arrange(id, time) |>
+      ungroup()    # New column for original cell values
+    
+head(df_long)
+```
+
