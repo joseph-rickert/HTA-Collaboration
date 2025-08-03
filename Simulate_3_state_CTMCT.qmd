@@ -1,5 +1,7 @@
 ---
 title: "Simulate 3 State Markov Chain"
+author: Joseph Rickert
+date: August 2, 2025
 format: html
 ---
 
@@ -182,7 +184,7 @@ survival_data <- sim_data |>
 
 # Plot survival curves by initial state
 ggplot(survival_data, aes(x = survival_time, color = factor(start_state))) +
-  stat_ecdf(aes(y = after_stat(1 - y)), size = 1) +
+  stat_ecdf(aes(y = after_stat(1 - y)), linewidth = 1.5) +
   labs(
     title = "Survival Curves from Initial States",
     x = "Time to Absorption",
@@ -327,7 +329,7 @@ tbl3 <- ggtexttable(absorption_summary, theme = ttheme("light"), rows = NULL)
 
 # Arrange tables with titles using ggarrange
 ggarrange(tbl1, tbl2, tbl3,
-          labels = c("⏳ Time in States 1 & 2", "🚪 First Hitting Times", "⚰️ Time to Absorption"),
+          labels = c("Time in States 1 & 2", "First Hitting Times", "Time to Absorption"),
           font.label = list(size = 12, face = "bold"),
           ncol = 1, nrow = 3)
 
