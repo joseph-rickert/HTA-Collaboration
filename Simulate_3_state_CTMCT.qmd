@@ -4,14 +4,21 @@ format: html
 ---
 
 ```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Show the code"
 library(expm)        # for matrix exponential
 library(ggplot2)
 library(dplyr)
+library(tidyr)
 library(ggpubr)   # For ggtexttable
 
 ```
 ### Define Transition Rate Matrix
 ```{r}
+#| code-fold: TRUE
+#| code-summary: "Show the code"
 # States: 1 = Mild Disease, 2 = Progression, 3 = Death (absorbing)
 Q <- matrix(c(
   -0.1,  0.07, 0.03,   # Mild Disease → Progression & Death
@@ -29,6 +36,8 @@ Q
 
 ### Simulate CTMC Paths
 ```{r}
+#| code-fold: TRUE
+#| code-summary: "Show the code"
 # This function simulates from the 'jump chain' built from the Q matrix.
 simulate_ctmc <- function(Q, start_state = 1, max_time = 100) {
   time <- 0
@@ -65,6 +74,10 @@ simulate_ctmc <- function(Q, start_state = 1, max_time = 100) {
 
 ### Alternative simulation function
 ```{r}
+#| code-fold: TRUE
+#| code-summary: "Show the code"
+#| eval: false
+#|
 # This function includes explicit, exponential clock for states 1 and 2
 simulate_ctmc <- function(Q, start_state = 1, max_time = 100) {
   time <- 0
@@ -103,13 +116,10 @@ simulate_ctmc <- function(Q, start_state = 1, max_time = 100) {
 
 
 
-
-
-
-
-
 ### Simualate patients
 ```{r}
+#| code-fold: TRUE
+#| code-summary: "Show the code"
 # Simulate for many patients
 set.seed(123)
 n_patients <- 500
@@ -136,11 +146,14 @@ clean_data <- sim_data |> filter(!is.na(time) & is.finite(time))
 ### For debugging
 
 ```{r}
+#| code-fold: TRUE
+#| code-summary: "Show the code"
 patient_trajectories <- lapply(1:n_patients, function(i) {
   start_state <- sample(1:2, 1)  # Avoid absorbing state as entry
   simulate_ctmc(Q, start_state = start_state) |>
     mutate(patient = i)
 })
+head(patient_trajectories)
 ```
 
 
@@ -150,6 +163,8 @@ patient_trajectories <- lapply(1:n_patients, function(i) {
 
 ### Plot Survival Curves
 ```{r}
+#| code-fold: TRUE
+#| code-summary: "Show the code"
 # Extract initial entry per patient
 
 initial_state <- sim_data |> 
@@ -180,6 +195,8 @@ ggplot(survival_data, aes(x = survival_time, color = factor(start_state))) +
 
 ### State Table
 ```{r}
+#| code-fold: TRUE
+#| code-summary: "Show the code"
 
 # Aggregate number of transitions between states
 state_counts <- sim_data |>
@@ -202,7 +219,9 @@ state_table
 
 Time in states  1 and 2
 ```{r}
-#library(dplyr)
+#| code-fold: TRUE
+#| code-summary: "Show the code"
+
 
 # Step 1: Sort and compute time between observations
 state_durations <- sim_data |>
@@ -233,6 +252,8 @@ time_per_state
 
 First hitting time by state
 ```{r}
+#| code-fold: TRUE
+#| code-summary: "Show the code"
 first_hits <- sim_data |>
   group_by(patient, to_state) |>
   summarise(first_hit = min(time), .groups = "drop") |>
@@ -251,6 +272,8 @@ first_hits
 
 Time to Absorption by state
 ```{r}
+#| code-fold: TRUE
+#| code-summary: "Show the code"
 # Step 1: Assign each patient their start_state (only 1 or 2)
 initial_state <- sim_data |>
   group_by(patient) |>
@@ -293,10 +316,12 @@ absorption_summary
 
 
 ```{r}
+#| code-fold: TRUE
+#| code-summary: "Show the code"
 #library(ggpubr)
 
 # Create each table without title argument
-tbl1 <- ggtexttable(time_in_states, theme = ttheme("light"), rows = NULL)
+tbl1 <- ggtexttable(time_per_state, theme = ttheme("light"), rows = NULL)
 tbl2 <- ggtexttable(first_hits, theme = ttheme("light"), rows = NULL)
 tbl3 <- ggtexttable(absorption_summary, theme = ttheme("light"), rows = NULL)
 
