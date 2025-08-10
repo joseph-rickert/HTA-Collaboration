@@ -1,0 +1,160 @@
+---
+title: "Solution to Differential Equations"
+format: html
+---
+
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+
+\title{Symbolic Solution of Kolmogorov Forward Equations for a 3-State CTMC}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section*{1. Generator Matrix \( Q \)}
+
+We consider a continuous-time Markov chain (CTMC) with three states, where state 3 is absorbing. The generator matrix \( Q \) is:
+
+\[
+Q = 
+\begin{bmatrix}
+- (q_{12} + q_{13}) & q_{12} & q_{13} \\
+q_{21} & - (q_{21} + q_{23}) & q_{23} \\
+0 & 0 & 0
+\end{bmatrix}
+\]
+
+Let:
+\[
+\alpha = q_{12} + q_{13}, \quad \beta = q_{21} + q_{23}
+\]
+
+\section*{2. Kolmogorov Forward Equations}
+
+Let \( \mathbf{p}(t) = [p_1(t), p_2(t), p_3(t)]^\top \) be the probability vector at time \( t \), starting from state 1. Then:
+
+\[
+\frac{d}{dt} \mathbf{p}(t) = Q \mathbf{p}(t), \quad \mathbf{p}(0) = 
+\begin{bmatrix}
+1 \\
+0 \\
+0
+\end{bmatrix}
+\]
+
+This yields the system:
+
+\begin{align*}
+\frac{dp_1}{dt} &= -\alpha p_1 + q_{21} p_2 \\
+\frac{dp_2}{dt} &= q_{12} p_1 - \beta p_2 \\
+\frac{dp_3}{dt} &= q_{13} p_1 + q_{23} p_2
+\end{align*}
+
+\section*{3. Matrix Form and Eigenvalues}
+
+Define:
+
+\[
+A = 
+\begin{bmatrix}
+- \alpha & q_{21} \\
+q_{12} & - \beta
+\end{bmatrix}
+\]
+
+Then:
+
+\[
+\frac{d}{dt}
+\begin{bmatrix}
+p_1(t) \\
+p_2(t)
+\end{bmatrix}
+=
+A
+\begin{bmatrix}
+p_1(t) \\
+p_2(t)
+\end{bmatrix}, \quad
+\begin{bmatrix}
+p_1(0) \\
+p_2(0)
+\end{bmatrix}
+=
+\begin{bmatrix}
+1 \\
+0
+\end{bmatrix}
+\]
+
+The eigenvalues of \( A \) are:
+
+\[
+\lambda_{1,2} = \frac{- (\alpha + \beta) \pm \sqrt{(\alpha - \beta)^2 + 4 q_{12} q_{21}}}{2}
+\]
+
+Let:
+
+\[
+\delta = \sqrt{(\alpha - \beta)^2 + 4 q_{12} q_{21}}, \quad
+\lambda_1 = \frac{- (\alpha + \beta) + \delta}{2}, \quad
+\lambda_2 = \frac{- (\alpha + \beta) - \delta}{2}
+\]
+
+\section*{4. Solution for \( p_1(t) \) and \( p_2(t) \)}
+
+Using the eigen-decomposition or variation of parameters:
+
+\begin{align*}
+p_1(t) &= \left( \frac{\lambda_1 + \alpha}{\lambda_1 - \lambda_2} \right) e^{\lambda_2 t}
++ \left( \frac{\lambda_2 + \alpha}{\lambda_2 - \lambda_1} \right) e^{\lambda_1 t} \\
+p_2(t) &= \frac{q_{12}}{\lambda_1 - \lambda_2} \left( e^{\lambda_1 t} - e^{\lambda_2 t} \right)
+\end{align*}
+
+\section*{5. Solution for \( p_3(t) \)}
+
+Since total probability must sum to 1:
+
+\[
+p_3(t) = 1 - p_1(t) - p_2(t)
+\]
+
+Alternatively, integrate:
+
+\[
+p_3(t) = \int_0^t \left( q_{13} p_1(s) + q_{23} p_2(s) \right) ds
+\]
+
+\section*{6. Transition Probabilities from State 1}
+
+\begin{align*}
+P_{11}(t) &= p_1(t) \\
+P_{12}(t) &= p_2(t) \\
+P_{13}(t) &= 1 - p_1(t) - p_2(t)
+\end{align*}
+
+\section*{7. Transition Probabilities from State 2}
+
+Repeat the same process with initial condition \( \mathbf{p}(0) = [0, 1, 0]^\top \). The solutions are:
+
+\begin{align*}
+P_{21}(t) &= \frac{q_{21}}{\lambda_1 - \lambda_2} \left( e^{\lambda_1 t} - e^{\lambda_2 t} \right) \\
+P_{22}(t) &= \left( \frac{\lambda_1 + \beta}{\lambda_1 - \lambda_2} \right) e^{\lambda_2 t}
++ \left( \frac{\lambda_2 + \beta}{\lambda_2 - \lambda_1} \right) e^{\lambda_1 t} \\
+P_{23}(t) &= 1 - P_{21}(t) - P_{22}(t)
+\end{align*}
+
+\section*{8. Transition Probabilities from State 3 (Absorbing)}
+
+\[
+P_{31}(t) = 0, \quad P_{32}(t) = 0, \quad P_{33}(t) = 1
+\]
+
+\end{document}
+

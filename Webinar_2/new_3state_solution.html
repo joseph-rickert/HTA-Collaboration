@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.3.433">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>new_3state_solution</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="new_3state_solution_files/libs/clipboard/clipboard.min.js"></script>
+<script src="new_3state_solution_files/libs/quarto-html/quarto.js"></script>
+<script src="new_3state_solution_files/libs/quarto-html/popper.min.js"></script>
+<script src="new_3state_solution_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="new_3state_solution_files/libs/quarto-html/anchor.min.js"></script>
+<link href="new_3state_solution_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="new_3state_solution_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="new_3state_solution_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="new_3state_solution_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="new_3state_solution_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+</head>
+
+<body class="fullcontent">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">new_3state_solution</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+</header>
+
+<p>This document implements a new approach to solving the Kolmogorov Forward Equations for the 3-state absorbing continuous time Markov chain given an aggregate state table computed a a particular time. The approach is as follows:</p>
+<ol type="1">
+<li>Implement a JAGS model to estimate the generator matrix 𝑄 from the state table.</li>
+<li>Solve the differential equations for the Kolmogorov Forward Equations using the estimated parameters from the JAGS model.</li>
+</ol>
+<section id="load-the-required-libraries" class="level3">
+<h3 class="anchored" data-anchor-id="load-the-required-libraries">Load the required libraries</h3>
+<div class="cell">
+<details>
+<summary>Show the code</summary>
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(rjags)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(coda)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyr)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="input-the-data" class="level3">
+<h3 class="anchored" data-anchor-id="input-the-data">Input the data</h3>
+<div class="cell">
+<details>
+<summary>Show the code</summary>
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Example state table: ST[i,j] = transitions from i to j</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>ST <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="dv">0</span>, <span class="dv">12</span>, <span class="dv">5</span>,</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="dv">8</span>, <span class="dv">0</span>, <span class="dv">7</span>,</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">20</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>), <span class="at">nrow =</span> <span class="dv">3</span>, <span class="at">byrow =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Total time spent in states 1 and 2</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>T_vec <span class="ot">&lt;-</span> <span class="fu">rowSums</span>(ST)[<span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>]  <span class="co"># c(17, 15)</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>data_jags <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">ST =</span> ST,</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">T =</span> <span class="fu">as.numeric</span>(T_vec)  <span class="co"># Ensure it's a numeric vector</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="the-jags-model-sting" class="level3">
+<h3 class="anchored" data-anchor-id="the-jags-model-sting">The JAGS Model Sting</h3>
+<div class="cell">
+<details>
+<summary>Show the code</summary>
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>model_string <span class="ot">&lt;-</span> <span class="st">"</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="st">model {</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="st">  # Likelihood: Poisson transitions from state i to j</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="st">  for (i in 1:2) {</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="st">    for (j in 1:3) {</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="st">      ST[i,j] ~ dpois(rate[i,j])</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="st">    }</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="st">  }</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="st">  # State 3 is absorbing: no transitions out</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="st">  for (j in 1:3) {</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="st">    rate[3,j] &lt;- 0</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="st">  }</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="st">  # Define rates from Q matrix</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="st">  rate[1,1] &lt;- 0</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a><span class="st">  rate[1,2] &lt;- q12 * T[1]</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a><span class="st">  rate[1,3] &lt;- q13 * T[1]</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a><span class="st">  rate[2,1] &lt;- q21 * T[2]</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a><span class="st">  rate[2,2] &lt;- 0</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a><span class="st">  rate[2,3] &lt;- q23 * T[2]</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a><span class="st">  # Priors for off-diagonal rates</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a><span class="st">  q12 ~ dgamma(1, 1)</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a><span class="st">  q13 ~ dgamma(1, 1)</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a><span class="st">  q21 ~ dgamma(1, 1)</span></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a><span class="st">  q23 ~ dgamma(1, 1)</span></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a><span class="st">  # Construct generator matrix Q</span></span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a><span class="st">  Q[1,1] &lt;- - (q12 + q13)</span></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a><span class="st">  Q[1,2] &lt;- q12</span></span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a><span class="st">  Q[1,3] &lt;- q13</span></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a><span class="st">  Q[2,1] &lt;- q21</span></span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a><span class="st">  Q[2,2] &lt;- - (q21 + q23)</span></span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a><span class="st">  Q[2,3] &lt;- q23</span></span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a><span class="st">  Q[3,1] &lt;- 0</span></span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a><span class="st">  Q[3,2] &lt;- 0</span></span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a><span class="st">  Q[3,3] &lt;- 0</span></span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a><span class="st">}</span></span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a><span class="st">"</span></span>
+<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a><span class="fu">writeLines</span>(model_string, <span class="st">"new_3state_solution.bug"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="run-the-jags-model" class="level3">
+<h3 class="anchored" data-anchor-id="run-the-jags-model">Run the JAGS Model</h3>
+<div class="cell">
+<details>
+<summary>Show the code</summary>
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Initialize model</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Compile model</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>jags_model <span class="ot">&lt;-</span> <span class="fu">jags.model</span>(<span class="at">file =</span> <span class="st">"new_3state_solution.bug"</span>,</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>                         <span class="at">data =</span> data_jags,</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>                         <span class="at">n.chains =</span> <span class="dv">3</span>,</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>                         <span class="at">n.adapt =</span> <span class="dv">1000</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>Compiling model graph
+   Resolving undeclared variables
+   Allocating nodes
+Graph information:
+   Observed stochastic nodes: 6
+   Unobserved stochastic nodes: 4
+   Total graph size: 25
+
+Initializing model</code></pre>
+</div>
+<details>
+<summary>Show the code</summary>
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Burn-in</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="fu">update</span>(jags_model, <span class="dv">1000</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<p>Extract Samples</p>
+<div class="cell">
+<details>
+<summary>Show the code</summary>
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Sample from posterior</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>samples <span class="ot">&lt;-</span> <span class="fu">coda.samples</span>(jags_model,</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>                        <span class="at">variable.names =</span> <span class="fu">c</span>(<span class="st">"Q"</span>),</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>                        <span class="at">n.iter =</span> <span class="dv">5000</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="summarize-the-samples" class="level3">
+<h3 class="anchored" data-anchor-id="summarize-the-samples">Summarize the Samples</h3>
+<div class="cell">
+<details>
+<summary>Show the code</summary>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>samples_df <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(<span class="fu">as.mcmc</span>(<span class="fu">do.call</span>(rbind, samples)))</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>smry <span class="ot">&lt;-</span> <span class="fu">summary</span>(samples)</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>smry</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Iterations = 1001:6000
+Thinning interval = 1 
+Number of chains = 3 
+Sample size per chain = 5000 
+
+1. Empirical mean and standard deviation for each variable,
+   plus standard error of the mean:
+
+          Mean     SD Naive SE Time-series SE
+Q[1,1] -1.0586 0.2435 0.001988       0.001951
+Q[2,1]  0.5643 0.1898 0.001550       0.001550
+Q[3,1]  0.0000 0.0000 0.000000       0.000000
+Q[1,2]  0.7261 0.2023 0.001652       0.001641
+Q[2,2] -1.0649 0.2601 0.002124       0.002171
+Q[3,2]  0.0000 0.0000 0.000000       0.000000
+Q[1,3]  0.3325 0.1359 0.001109       0.001109
+Q[2,3]  0.5006 0.1762 0.001439       0.001444
+Q[3,3]  0.0000 0.0000 0.000000       0.000000
+
+2. Quantiles for each variable:
+
+          2.5%     25%     50%     75%   97.5%
+Q[1,1] -1.5810 -1.2135 -1.0410 -0.8853 -0.6374
+Q[2,1]  0.2591  0.4277  0.5428  0.6763  0.9930
+Q[3,1]  0.0000  0.0000  0.0000  0.0000  0.0000
+Q[1,2]  0.3845  0.5825  0.7072  0.8498  1.1692
+Q[2,2] -1.6325 -1.2261 -1.0406 -0.8783 -0.6240
+Q[3,2]  0.0000  0.0000  0.0000  0.0000  0.0000
+Q[1,3]  0.1227  0.2336  0.3139  0.4117  0.6471
+Q[2,3]  0.2209  0.3729  0.4787  0.6045  0.9068
+Q[3,3]  0.0000  0.0000  0.0000  0.0000  0.0000</code></pre>
+</div>
+</div>
+</section>
+<section id="set-up-fpr-mcmc-trace-plots" class="level2">
+<h2 class="anchored" data-anchor-id="set-up-fpr-mcmc-trace-plots">Set up fpr MCMC Trace Plots</h2>
+<div class="cell">
+<details>
+<summary>Show the code</summary>
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Convert mcmc.list to data frame and add chain + iteration info</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>df_long <span class="ot">&lt;-</span> <span class="fu">do.call</span>(rbind, <span class="fu">lapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(samples), <span class="cf">function</span>(chain) {</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as.data.frame</span>(samples[[chain]]) <span class="sc">%&gt;%</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>      <span class="at">iteration =</span> <span class="fu">row_number</span>(),</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>      <span class="at">chain =</span> <span class="fu">factor</span>(chain)</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>})) <span class="sc">%&gt;%</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols =</span> <span class="sc">-</span><span class="fu">c</span>(iteration, chain), </span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>               <span class="at">names_to =</span> <span class="st">"parameter"</span>, </span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>               <span class="at">values_to =</span> <span class="st">"value"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<section id="trace-plots" class="level3">
+<h3 class="anchored" data-anchor-id="trace-plots">Trace Plots</h3>
+<div class="cell">
+<details>
+<summary>Show the code</summary>
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Define the number of rows to sample</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>n_sample <span class="ot">&lt;-</span> <span class="dv">10000</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Take a random sample of n_sample rows</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="co">#f) gets the total number of rows in the data frame</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="co"># sample(nrow(df), n_sample) generates n_sample random row indices</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a><span class="co"># df[...] then subsets the data frame using these random indices</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>random_sample_df <span class="ot">&lt;-</span> df_long[<span class="fu">sample</span>(<span class="fu">nrow</span>(df_long), n_sample), ]</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(random_sample_df <span class="sc">%&gt;%</span> <span class="fu">filter</span>(parameter <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"Q[1,1]"</span>, <span class="st">"Q[1,2]"</span>, <span class="st">"Q[1,3]"</span>, </span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>                                           <span class="st">"Q[2,1]"</span>, <span class="st">"Q[2,2]"</span>, <span class="st">"Q[2,3]"</span>)), </span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>       <span class="fu">aes</span>(<span class="at">x =</span> iteration, <span class="at">y =</span> value, <span class="at">color =</span> chain)) <span class="sc">+</span></span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">alpha =</span> <span class="fl">0.6</span>) <span class="sc">+</span></span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>parameter, <span class="at">scales =</span> <span class="st">"free_y"</span>) <span class="sc">+</span></span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Trace Plots"</span>, <span class="at">x =</span> <span class="st">"Iterations"</span>, <span class="at">y =</span> <span class="st">"Parameter Value"</span>) <span class="sc">+</span></span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">breaks =</span> n_sample)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img src="new_3state_solution_files/figure-html/unnamed-chunk-8-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+</section>
+<section id="plot-posterior-distributions." class="level3">
+<h3 class="anchored" data-anchor-id="plot-posterior-distributions.">Plot Posterior distributions.</h3>
+<div class="cell">
+<details>
+<summary>Show the code</summary>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(df_long <span class="sc">%&gt;%</span> <span class="fu">filter</span>(parameter <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"Q[1,1]"</span>, <span class="st">"Q[1,2]"</span>, <span class="st">"Q[1,3]"</span>, </span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>                                           <span class="st">"Q[2,1]"</span>, <span class="st">"Q[2,2]"</span>, <span class="st">"Q[2,3]"</span>)), </span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>       <span class="fu">aes</span>(<span class="at">x =</span> value, <span class="at">fill =</span> parameter)) <span class="sc">+</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>       <span class="fu">geom_density</span>(<span class="at">alpha =</span> <span class="fl">0.5</span>) <span class="sc">+</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>       <span class="fu">facet_wrap</span>(<span class="sc">~</span>parameter, <span class="at">scales =</span> <span class="st">"free"</span>) <span class="sc">+</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>       <span class="fu">xlim</span>(<span class="dv">0</span>,<span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>       <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Posterior Densities"</span>, <span class="at">x =</span> <span class="st">"Value"</span>, <span class="at">y =</span> <span class="st">"Density"</span>) <span class="sc">+</span></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>       <span class="fu">theme_minimal</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img src="new_3state_solution_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>Functions to compute transition Probabilities</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Define symbolic transition probability functions</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>compute_P <span class="ot">&lt;-</span> <span class="cf">function</span>(t, q12, q13, q21, q23) {</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Define shorthand</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>  alpha <span class="ot">&lt;-</span> q12 <span class="sc">+</span> q13</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>  beta  <span class="ot">&lt;-</span> q21 <span class="sc">+</span> q23</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>  delta <span class="ot">&lt;-</span> <span class="fu">sqrt</span>((alpha <span class="sc">-</span> beta)<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> <span class="dv">4</span> <span class="sc">*</span> q12 <span class="sc">*</span> q21)</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>  lambda1 <span class="ot">&lt;-</span> (<span class="sc">-</span> (alpha <span class="sc">+</span> beta) <span class="sc">+</span> delta) <span class="sc">/</span> <span class="dv">2</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>  lambda2 <span class="ot">&lt;-</span> (<span class="sc">-</span> (alpha <span class="sc">+</span> beta) <span class="sc">-</span> delta) <span class="sc">/</span> <span class="dv">2</span></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Transition probabilities from state 1</span></span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>  P11 <span class="ot">&lt;-</span> ((lambda1 <span class="sc">+</span> alpha) <span class="sc">/</span> (lambda1 <span class="sc">-</span> lambda2)) <span class="sc">*</span> <span class="fu">exp</span>(lambda2 <span class="sc">*</span> t) <span class="sc">+</span></span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>         ((lambda2 <span class="sc">+</span> alpha) <span class="sc">/</span> (lambda2 <span class="sc">-</span> lambda1)) <span class="sc">*</span> <span class="fu">exp</span>(lambda1 <span class="sc">*</span> t)</span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>  P12 <span class="ot">&lt;-</span> (q12 <span class="sc">/</span> (lambda1 <span class="sc">-</span> lambda2)) <span class="sc">*</span> (<span class="fu">exp</span>(lambda1 <span class="sc">*</span> t) <span class="sc">-</span> <span class="fu">exp</span>(lambda2 <span class="sc">*</span> t))</span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>  P13 <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> P11 <span class="sc">-</span> P12</span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Transition probabilities from state 2</span></span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a>  P21 <span class="ot">&lt;-</span> (q21 <span class="sc">/</span> (lambda1 <span class="sc">-</span> lambda2)) <span class="sc">*</span> (<span class="fu">exp</span>(lambda1 <span class="sc">*</span> t) <span class="sc">-</span> <span class="fu">exp</span>(lambda2 <span class="sc">*</span> t))</span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a>  P22 <span class="ot">&lt;-</span> ((lambda1 <span class="sc">+</span> beta) <span class="sc">/</span> (lambda1 <span class="sc">-</span> lambda2)) <span class="sc">*</span> <span class="fu">exp</span>(lambda2 <span class="sc">*</span> t) <span class="sc">+</span></span>
+<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a>         ((lambda2 <span class="sc">+</span> beta) <span class="sc">/</span> (lambda2 <span class="sc">-</span> lambda1)) <span class="sc">*</span> <span class="fu">exp</span>(lambda1 <span class="sc">*</span> t)</span>
+<span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a>  P23 <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> P21 <span class="sc">-</span> P22</span>
+<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Transition probabilities from absorbing state 3</span></span>
+<span id="cb13-27"><a href="#cb13-27" aria-hidden="true" tabindex="-1"></a>  P31 <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb13-28"><a href="#cb13-28" aria-hidden="true" tabindex="-1"></a>  P32 <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb13-29"><a href="#cb13-29" aria-hidden="true" tabindex="-1"></a>  P33 <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb13-30"><a href="#cb13-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-31"><a href="#cb13-31" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Assemble full transition matrix</span></span>
+<span id="cb13-32"><a href="#cb13-32" aria-hidden="true" tabindex="-1"></a>  P <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(</span>
+<span id="cb13-33"><a href="#cb13-33" aria-hidden="true" tabindex="-1"></a>    P11, P12, P13,</span>
+<span id="cb13-34"><a href="#cb13-34" aria-hidden="true" tabindex="-1"></a>    P21, P22, P23,</span>
+<span id="cb13-35"><a href="#cb13-35" aria-hidden="true" tabindex="-1"></a>    P31, P32, P33</span>
+<span id="cb13-36"><a href="#cb13-36" aria-hidden="true" tabindex="-1"></a>  ), <span class="at">nrow =</span> <span class="dv">3</span>, <span class="at">byrow =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb13-37"><a href="#cb13-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-38"><a href="#cb13-38" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(P)</span>
+<span id="cb13-39"><a href="#cb13-39" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Compute Transition Probabilities</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Define rates</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>q12 <span class="ot">&lt;-</span> <span class="fu">mean</span>(samples_df<span class="sc">$</span><span class="st">"Q[1,2]"</span>)</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>q13 <span class="ot">&lt;-</span> <span class="fu">mean</span>(samples_df<span class="sc">$</span><span class="st">"Q[1,3]"</span>)</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>q21 <span class="ot">&lt;-</span> <span class="fu">mean</span>(samples_df<span class="sc">$</span><span class="st">"Q[2,1]"</span>)</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>q23 <span class="ot">&lt;-</span> <span class="fu">mean</span>(samples_df<span class="sc">$</span><span class="st">"Q[2,3]"</span>)</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>t <span class="ot">&lt;-</span> <span class="dv">12</span></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>P <span class="ot">&lt;-</span> <span class="fu">compute_P</span>(t, q12, q13, q21, q23)</span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a><span class="fu">round</span>(P,<span class="dv">4</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>       [,1]   [,2]   [,3]
+[1,] 0.0032 0.0036 0.9932
+[2,] 0.0028 0.0032 0.9940
+[3,] 0.0000 0.0000 1.0000</code></pre>
+</div>
+</div>
+</section>
+</section>
+<section id="the-differential-equations" class="level2">
+<h2 class="anchored" data-anchor-id="the-differential-equations">The Differential Equations</h2>
+<section id="model-structure" class="level3">
+<h3 class="anchored" data-anchor-id="model-structure">Model Structure</h3>
+</section>
+</section>
+<section id="all-of-the-math-the-differential-equations" class="level2">
+<h2 class="anchored" data-anchor-id="all-of-the-math-the-differential-equations">All of the Math: The Differential Equations</h2>
+<section id="step-1-define-the-generator-matrix-𝑄" class="level3">
+<h3 class="anchored" data-anchor-id="step-1-define-the-generator-matrix-𝑄">Step 1: Define the Generator Matrix 𝑄</h3>
+<p>We assume:</p>
+<ul>
+<li>States 1 and 2 are transient.</li>
+<li>State 3 is absorbing.</li>
+<li>Generator matrix 𝑄 has the form:</li>
+</ul>
+<p><span class="math display">\[Q =
+\begin{bmatrix}
+- (q_{12} + q_{13}) &amp; q_{12} &amp; q_{13} \\
+q_{21} &amp; - (q_{21} + q_{23}) &amp; q_{23} \\
+0 &amp; 0 &amp; 0
+\end{bmatrix}\]</span></p>
+<p><span class="math display">\[\alpha = q_{12} + q_{13}, \quad \beta = q_{21} + q_{23}\]</span></p>
+</section>
+<section id="step-2-kolmogorov-forward-equations" class="level3">
+<h3 class="anchored" data-anchor-id="step-2-kolmogorov-forward-equations">Step 2: Kolmogorov Forward Equations</h3>
+<p><span class="math display">\[\frac{d}{dt} \mathbf{p}(t) = Q \mathbf{p}(t), \quad \mathbf{p}(0) =
+\begin{bmatrix}
+1 \\
+0 \\
+0
+\end{bmatrix}\]</span></p>
+<p>This gives the system:</p>
+<p><span class="math display">\[\begin{aligned}
+\frac{dp_1}{dt} &amp;= -\alpha p_1 + q_{21} p_2 \\
+\frac{dp_2}{dt} &amp;= q_{12} p_1 - \beta p_2 \\
+\frac{dp_3}{dt} &amp;= q_{13} p_1 + q_{23} p_2
+\end{aligned}\]</span></p>
+</section>
+<section id="step-3-solve-the-coupled-system-for-𝑝1𝑡-and-𝑝2𝑡" class="level3">
+<h3 class="anchored" data-anchor-id="step-3-solve-the-coupled-system-for-𝑝1𝑡-and-𝑝2𝑡">Step 3: Solve the Coupled System for 𝑝1(𝑡) and 𝑝2(𝑡)</h3>
+<p>This is a linear system of two first-order ODEs. We write it in matrix form:</p>
+<p><span class="math display">\[\frac{d}{dt}
+\begin{bmatrix}
+p_1(t) \\
+p_2(t)
+\end{bmatrix}
+=
+\begin{bmatrix}
+- \alpha &amp; q_{21} \\
+q_{12} &amp; - \beta
+\end{bmatrix}
+\begin{bmatrix}
+p_1(t) \\
+p_2(t)
+\end{bmatrix}\]</span></p>
+<p>Let this matrix be 𝐴. The solution is:</p>
+<p><span class="math display">\[\begin{bmatrix}
+p_1(t) \\
+p_2(t)
+\end{bmatrix}
+= e^{A t}
+\begin{bmatrix}
+1 \\
+0
+\end{bmatrix}\]</span></p>
+</section>
+<section id="step-4-diagonalize-𝐴-the-eigenvalues-of-𝐴are" class="level3">
+<h3 class="anchored" data-anchor-id="step-4-diagonalize-𝐴-the-eigenvalues-of-𝐴are">Step 4: Diagonalize 𝐴 The eigenvalues of 𝐴are:</h3>
+<p><span class="math display">\[\lambda_{1,2} = \frac{- (\alpha + \beta) \pm \sqrt{(\alpha - \beta)^2 + 4 q_{12} q_{21}}}{2}\]</span> Let:</p>
+<p><span class="math display">\[\delta = \sqrt{(\alpha - \beta)^2 + 4 q_{12} q_{21}}, \quad
+\lambda_1 = \frac{- (\alpha + \beta) + \delta}{2}, \quad
+\lambda_2 = \frac{- (\alpha + \beta) - \delta}{2}\]</span></p>
+</section>
+<section id="step-5-solve-for-𝑝1𝑡-and-𝑝2𝑡" class="level3">
+<h3 class="anchored" data-anchor-id="step-5-solve-for-𝑝1𝑡-and-𝑝2𝑡">Step 5: Solve for 𝑝1(𝑡) and 𝑝2(𝑡)</h3>
+<p>Using variation of parameters or Laplace transforms, we obtain:</p>
+<p><span class="math display">\[\begin{aligned}
+p_1(t) &amp;= \left( \frac{\lambda_1 + \alpha}{\lambda_1 - \lambda_2} \right) e^{\lambda_2 t}
++ \left( \frac{\lambda_2 + \alpha}{\lambda_2 - \lambda_1} \right) e^{\lambda_1 t} \\
+p_2(t) &amp;= \frac{q_{12}}{\lambda_1 - \lambda_2} \left( e^{\lambda_1 t} - e^{\lambda_2 t} \right)
+\end{aligned}\]</span></p>
+</section>
+<section id="step-6-solve-for-𝑝3𝑡-integrate-the-third-equation" class="level3">
+<h3 class="anchored" data-anchor-id="step-6-solve-for-𝑝3𝑡-integrate-the-third-equation">Step 6: Solve for 𝑝3(𝑡) Integrate the third equation:</h3>
+<p><span class="math display">\[\frac{dp_3}{dt} = q_{13} p_1(t) + q_{23} p_2(t)\]</span> Then:</p>
+<p><span class="math display">\[p_3(t) = \int_0^t \left( q_{13} p_1(s) + q_{23} p_2(s) \right) ds\]</span></p>
+<p>But since total probability must sum to 1:</p>
+<p><span class="math display">\[p_3(t) = 1 - p_1(t) - p_2(t)\]</span></p>
+</section>
+<section id="final-transition-probabilities-from-state-1" class="level3">
+<h3 class="anchored" data-anchor-id="final-transition-probabilities-from-state-1">Final Transition Probabilities from State 1</h3>
+<p><span class="math display">\[\begin{aligned}
+P_{11}(t) &amp;= p_1(t) \\
+P_{12}(t) &amp;= p_2(t) \\
+P_{13}(t) &amp;= 1 - p_1(t) - p_2(t)
+\end{aligned}\]</span></p>
+</section>
+<section id="transition-probabilities-from-state-2" class="level3">
+<h3 class="anchored" data-anchor-id="transition-probabilities-from-state-2">Transition Probabilities from State 2</h3>
+<p>Repeat the same process with initial condition 𝑝(0)=[0,1,0]⊤. The structure is symmetric, and the solutions are:</p>
+<p><span class="math display">\[\begin{aligned}
+P_{21}(t) &amp;= \frac{q_{21}}{\lambda_1 - \lambda_2} \left( e^{\lambda_1 t} - e^{\lambda_2 t} \right) \\
+P_{22}(t) &amp;= \left( \frac{\lambda_1 + \beta}{\lambda_1 - \lambda_2} \right) e^{\lambda_2 t}
++ \left( \frac{\lambda_2 + \beta}{\lambda_2 - \lambda_1} \right) e^{\lambda_1 t} \\
+P_{23}(t) &amp;= 1 - P_{21}(t) - P_{22}(t)
+\end{aligned}\]</span></p>
+</section>
+<section id="transition-probabilities-from-state-3-absorbing" class="level3">
+<h3 class="anchored" data-anchor-id="transition-probabilities-from-state-3-absorbing">Transition Probabilities from State 3 (Absorbing)</h3>
+<p><span class="math display">\[P_{31}(t) = 0, \quad P_{32}(t) = 0, \quad P_{33}(t) = 1\]</span></p>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>

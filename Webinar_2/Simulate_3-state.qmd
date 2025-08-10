@@ -1,0 +1,367 @@
+
+---
+title: "3-State S & F Model"
+author: Joseph Rickert
+date: August 2024
+format: html
+---
+
+This post shows how to use the elementary theory of discrete time Markov Chains to construct a multi-state model of patients progressing through various health states in a randomized clinical trial comparing different treatments for asthma management under the assumption that all patients in each of the two arms of the trial will eventually experience treatment failure. The post shows how to calculate transition probabilities using a simple multinomial Bayesian model and exploit the theory of absorbing Markov chains to calculate fundamental health metrics, including the expected time spent in each health state, survival curves, and the expected time to treatment failure for each of the two treatments. These estimates provide a natural way to compare the effectiveness of the two treatments and can be used to drive cost-effectiveness comparisons.
+
+
+
+
+## Load and Prepare Data
+
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Show the code"
+library(rjags)
+library(ggplot2)
+library(coda)
+library(dplyr)
+library(tidyr)
+```
+
+## Define the JAGS Model
+
+
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Code for JAGS Model String"
+#| include: FALSE
+model_string <- "
+model {
+
+# Multinomia Likelihood
+# for (i in 1:2){ r[i, 1:3] ~ dmulti(P[i, 1:3], n[i])
+#     }
+
+
+q1 <- Q[1,2] + Q[1,3]
+q2 <- Q[2,1] + Q[2,3]
+
+h <- sqrt( (q1 - q2)^2 + 4 * Q[1,2] * Q[2,1] )
+e1 <- exp(-.5*(q1 + q2 - h) * t) 
+e2 <- exp(-.5*(q1 + q2 + h) * t) 
+
+
+P[1,1] <- ( (-q1 + q2 + h) * e1 + (q1 - q2 + h) * e2) / (2 * h)
+P[1,2] <- (( -q1 + q2 + h) * (q1 - q2 + h) * (e1 - e2)) / ( 4 * h * Q[2,1])
+P[1,3] <- 1 - P[1,1] - P[1,2]
+P[2,1]  <- Q[2,1] * (e1 - e2) / h
+P[2,2] <- ((q1 - q2 + h) * e1 + (-q1 + q2 + h) * e2) / (2 * h)
+P[2,3] <- 1 - P[2,1] - P[2,2]
+P[3,1] <- 0
+P[3,2] <- 0
+P[3,3] <- 1
+
+
+# Priors for transition rates
+
+Q[1,2] ~ dgamma(0.1, 0.1)
+Q[1,3] ~ dgamma(0.1, 0.1)
+
+Q[1,1] <- -(Q[1,2] + Q[1,3])
+
+# Priors from state 2
+Q[2,1] ~ dgamma(0.1, 0.1)
+Q[2,3] ~ dgamma(0.1, 0.1)
+
+Q[2,2] <- -(Q[2,1] + Q[2,3])
+
+# # Priors for state 3 
+Q[3,1] ~ dgamma(0.1, 0.1)
+Q[3,2] ~ dgamma(0.1, 0.1)
+# 
+Q[3,3] <- -Q[3,1] - Q[3,2]
+
+}
+"   
+writeLines(model_string, "3-state-S&F.bug")
+```
+
+
+## Model 2
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Code for JAGS Model String"
+model_string <- "
+model {
+  # Likelihood: observed transitions from each state i to j
+  for (i in 1:3) {
+    transitions[i, 1:3] ~ dmulti(P[i, 1:3], n[i])
+  }
+
+  # Generator matrix Q
+  # Off-diagonal priors
+  Q[1,2] ~ dgamma(1, 1)
+  Q[1,3] ~ dgamma(1, 1)
+  Q[2,1] ~ dgamma(1, 1)
+  Q[2,3] ~ dgamma(1, 1)
+
+  # Diagonal entries: row sums must be zero
+  Q[1,1] <- - (Q[1,2] + Q[1,3])
+  Q[2,2] <- - (Q[2,1] + Q[2,3])
+
+  # Absorbing state
+  Q[3,1] <- 0
+  Q[3,2] <- 0
+  Q[3,3] <- 0
+
+  # Shorthand for symbolic expressions
+  alpha <- Q[1,2] + Q[1,3]
+  beta  <- Q[2,1] + Q[2,3]
+  delta <- sqrt((alpha - beta)^2 + 4 * Q[1,2] * Q[2,1])
+
+  lambda1 <- (- (alpha + beta) + delta) / 2
+  lambda2 <- (- (alpha + beta) - delta) / 2
+
+  # Transition probabilities from state 1
+  P[1,1] <- ((lambda1 + alpha) / (lambda1 - lambda2)) * exp(lambda2 * t) +
+            ((lambda2 + alpha) / (lambda2 - lambda1)) * exp(lambda1 * t)
+
+  P[1,2] <- (Q[1,2] / (lambda1 - lambda2)) * (exp(lambda1 * t) - exp(lambda2 * t))
+  P[1,3] <- 1 - P[1,1] - P[1,2]
+
+  # Transition probabilities from state 2
+  P[2,1] <- (Q[2,1] / (lambda1 - lambda2)) * (exp(lambda1 * t) - exp(lambda2 * t))
+
+  P[2,2] <- ((lambda1 + beta) / (lambda1 - lambda2)) * exp(lambda2 * t) +
+            ((lambda2 + beta) / (lambda2 - lambda1)) * exp(lambda1 * t)
+
+  P[2,3] <- 1 - P[2,1] - P[2,2]
+
+  # Absorbing state
+  P[3,1] <- 0
+  P[3,2] <- 0
+  P[3,3] <- 1
+}
+
+
+"   
+writeLines(model_string, "3-state-S&F.bug")
+```
+
+
+
+
+
+## Run the JAGS Model
+
+
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Show the code"
+#| 
+# Initialize model
+
+# Original five state matrix for Serentide
+#     STW UTW Hex Pex TF
+# STW 210  60   0   1  1
+# UTW  88 641   0   4 13
+# Hex   0   0   0   0  0
+# Pex   1   0   0   0  1
+# TF    0   0   0   0 81
+
+
+
+
+r <- matrix(c(210,    61,  1,
+               89,   645, 14,
+                0,     0, 81),  nrow=3, ncol=3, byrow=TRUE)
+
+n <- rowSums(r)
+ 
+
+data_list <- list(
+  r = r,
+  n = n,
+  t = 1)
+
+# Rate matrix Q
+
+inits <- function() {
+  list(
+    Q = matrix(c(0.0, 0.1, 0.1,
+                 0.1, 0.0, 0.1,
+                 0.1, 0.1, 0.0), nrow=3, byrow=TRUE)
+  )
+}
+
+
+              
+parameters.to.save = c("Q[1,1]", "Q[1,2]", "Q[1,3]", 
+                       "Q[2,1]", "Q[2,2]", "Q[2,3]", 
+                       "Q[3,1]", "Q[3,2]", "Q[3,3]",
+                       "P[1,1]", "P[1,2]", "P[1,3]", 
+                       "P[2,1]", "P[2,2]", "P[2,3]",
+                       "P[3,1]", "P[3,2]", "P[3,3]"
+                       )
+
+jags_model <- jags.model(file = "3-state-S&F.bug",
+                         data = data_list,
+                         n.chains = 3,
+                         n.adapt = 100)
+                         
+
+# Burn-in
+update(jags_model, 10000) #Discard these samples
+``` 
+This code uses the `coda.samples` function to draw samples from the JAGS model. The number of iterations is set to 5000, which can be adjusted based on convergence diagnostics and model complexity.
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Show the code"
+
+
+samples <- coda.samples(jags_model,
+  variable.names = c(
+    "Q[1,1]", "Q[1,2]", "Q[1,3]", 
+    "Q[2,1]", "Q[2,2]", "Q[2,3]", 
+    "Q[3,1]", "Q[3,2]", "Q[3,3]", 
+    "P[1,1]", "P[1,2]", "P[1,3]",  # cap P are the transition probabilities
+    "P[2,1]", "P[2,2]", "P[2,3]",   
+    "P[3,1]", "P[3,2]", "P[3,3]"
+  ),
+  n.iter = 50000,
+  n.thin = 10
+)
+
+
+```
+
+
+This code constructs, P, the matrix of transition probabilities. Prints out P and the row sums of P. Since P is a stochastic matrix, the row sums should be 1.
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| code-summary: "Show the code"
+
+states <- c("STW", "UTW-X", "F")
+smry <- summary(samples)
+smry_df <- as.data.frame(smry[1])
+names(smry_df) <- c("Mean", "SD", "Naive_SE", "Time_Series_SE")
+P_rows <- smry_df[grep("^P\\[", rownames(smry_df)), ]
+
+P <- matrix(P_rows[,1], nrow = 3, ncol = 3, byrow = TRUE)
+colnames(P) <- states
+rownames(P) <- states
+P
+rowsum_P <- rowSums(P)
+names(rowsum_P) <- c("Row1", "Row2", "Row3")
+rowsum_P
+```
+This code constructs the Generator matrix for the Markov, which contains the process rates, lambda. Rows of the generator matrix should sum to 0.
+
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| code-summary: "Show the code"
+
+Q_rows <- smry_df[grep("^Q", rownames(smry_df)), ]
+Q <- matrix(Q_rows[,1], nrow = 3, ncol = 3, byrow = TRUE)
+colnames(Q) <- states
+rownames(Q) <- states
+Q
+cat("\n row sums:")
+rowsum_Q <- rowSums(Q)
+names(rowsum_Q) <- c("Row1", "Row2", "Row3")
+rowsum_Q
+```
+This code constructs the matrix p of normalized transition probabilities matrix. These were computed by `JAGS` as a check on the stabiliy of the model. P and p should agree fairly closely.
+
+
+
+This code sets up for plotting MCMC diagnostics. 
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| code-summary: "Show the code"
+# Convert JAGS samples to a data frame
+samples_df <- as.data.frame(as.mcmc(do.call(rbind, samples)))
+
+
+# Optional: print a few raw samples
+cat("\n Transition Probabilities:\n")
+round(head(samples_df[,1:9]),3)
+
+cat("\n Process Rates:\n")
+round(head(samples_df[,10:18]),3)
+```
+
+## Plots of MCMC Traces.
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Show the code"
+# Convert mcmc.list to data frame and add chain + iteration info
+df_long <- do.call(rbind, lapply(1:length(samples), function(chain) {
+  as.data.frame(samples[[chain]]) %>%
+    mutate(
+      iteration = row_number(),
+      chain = factor(chain)
+    )
+})) %>%
+  pivot_longer(cols = -c(iteration, chain), 
+               names_to = "parameter", 
+               values_to = "value")
+
+```
+
+### Trace Plots
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Show the code"
+# Define the number of rows to sample
+n_sample <- 10000
+
+# Take a random sample of n_sample rows
+#f) gets the total number of rows in the data frame
+# sample(nrow(df), n_sample) generates n_sample random row indices
+# df[...] then subsets the data frame using these random indices
+random_sample_df <- df_long[sample(nrow(df_long), n_sample), ]
+ggplot(random_sample_df %>% filter(parameter %in% c("P[1,1]", "P[1,2]", "P[1,3]", 
+                                           "P[2,1]", "P[2,2]", "P[2,3]")), 
+       aes(x = iteration, y = value, color = chain)) +
+  geom_line(alpha = 0.6) +
+  facet_wrap(~parameter, scales = "free_y") +
+  labs(title = "Trace Plots", x = "Iterations", y = "Parameter Value") +
+  theme_minimal() +
+  scale_x_continuous(breaks = n_sample)
+```
+
+#
+
+
+### Plot Posterior distributions.
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| code-summary: "Show the code"
+ggplot(df_long %>% filter(parameter %in% c("P[1,1]", "P[1,2]", "P[1,3]", 
+                                           "P[2,1]", "P[2,2]", "P[2,3]")), 
+       aes(x = value, fill = parameter)) +
+       geom_density(alpha = 0.5) +
+       facet_wrap(~parameter, scales = "free") +
+       xlim(0,1) +
+       labs(title = "Posterior Densities", x = "Value", y = "Density") +
+       theme_minimal()
+
+```
