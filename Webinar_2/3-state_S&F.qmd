@@ -1,13 +1,12 @@
 
 ---
-title: "Solution to NMADA 3state asthma model"
+title: "3-State S & F Model"
 author: Joseph Rickert
-date: July 27, 2024
+date: August 2024
 format: html
 ---
 
-This document implents a `JAGS` model for the 3-state version of the 4-state model described in the book: [Network Meta-Analysis for Decision-Making](https://www.agropustaka.id/wp-content/uploads/2020/04/agropustaka.id_buku_Network-Meta-Analysis-for-Decision-Making.pdf) by Sofia Dias, A.E. Ades, Nicky J. Welton, Jeroen P. Jansen, and Alexander J. Sutton. The solutions to the 3-state exquations are form the paper:  Kolmogorov's equations for some Common Markov Models, Nicky J. Welton (2007).
-
+This post shows how to use the elementary theory of discrete time Markov Chains to construct a multi-state model of patients progressing through various health states in a randomized clinical trial comparing different treatments for asthma management under the assumption that all patients in each of the two arms of the trial will eventually experience treatment failure. The post shows how to calculate transition probabilities using a simple multinomial Bayesian model and exploit the theory of absorbing Markov chains to calculate fundamental health metrics, including the expected time spent in each health state, survival curves, and the expected time to treatment failure for each of the two treatments. These estimates provide a natural way to compare the effectiveness of the two treatments and can be used to drive cost-effectiveness comparisons.
 
 
 
@@ -34,11 +33,12 @@ library(tidyr)
 #| warning: FALSE
 #| code-fold: TRUE
 #| code-summary: "Code for JAGS Model String"
+#| include: FALSE
 model_string <- "
 model {
 
 # Multinomia Likelihood
-# for (i in 1:3){ r[i, 1:3] ~ dmulti(P[i, 1:3], n[i])
+# for (i in 1:2){ r[i, 1:3] ~ dmulti(P[i, 1:3], n[i])
 #     }
 
 
@@ -61,52 +61,6 @@ P[3,2] <- 0
 P[3,3] <- 1
 
 
-# Normalized transition probabilities are used to stabilize the model
-# If p[1,j] is exactly 0 or NA due to symbolic math breakdowns 
-# (e.g., division by row2_sum = 0), the likelihood becomes invalid
-# triggering that dreaded “Invalid parent values” error.
-# max(max(...), ε) acts like a soft-clipping threshold to guarantee numerical safety.
-
-# ---------- p[1,j] ---------- 
-
-row1_sum <- P[1,1] + P[1,2] + P[1,3]
-
-p[1,1] <- max(max(P[1,1] / row1_sum, 0), 0.000001)
-p[1,2] <- max(max(P[1,2] / row1_sum, 0), 0.000001)
-p[1,3] <- max(max(P[1,3] / row1_sum, 0), 0.000001)
-
-
-r[1,1:3] ~ dmulti(p[1,1:3], n[1])
-
-
-# ---------- p[2,j] ---------- 
-
-row2_sum <- P[2,1] + P[2,2] + P[2,3] 
-
-p[2,1] <- max(max(P[2,1] / row2_sum, 0), 0.000001)
-p[2,2] <- max(max(P[2,2] / row2_sum, 0), 0.000001)
-p[2,3] <- max(max(P[2,3] / row2_sum, 0), 0.000001)
-
-
-r[2,1:3] ~ dmulti(p[2,1:3], n[2])
-
-# ---------- p[3,j] ---------- 
- 
-row3_sum <- P[3,1] + P[3,2] + P[3,3]
-
-
-p[3,1] <- max(max(P[3,1] / row3_sum, 0), 0.000001)
-p[3,2] <- max(max(P[3,2] / row3_sum, 0), 0.000001)
-p[3,3] <- max(max(P[3,3] / row3_sum, 0), 0.000001)
-
-
-r[3,1:3] ~ dmulti(p[3,1:3], n[3])
-
-
-
-
-
-
 # Priors for transition rates
 
 Q[1,2] ~ dgamma(0.1, 0.1)
@@ -120,15 +74,84 @@ Q[2,3] ~ dgamma(0.1, 0.1)
 
 Q[2,2] <- -(Q[2,1] + Q[2,3])
 
-# Priors for state 3 
+# # Priors for state 3 
 Q[3,1] ~ dgamma(0.1, 0.1)
 Q[3,2] ~ dgamma(0.1, 0.1)
-
+# 
 Q[3,3] <- -Q[3,1] - Q[3,2]
+
 }
 "   
-writeLines(model_string, "3-state.bug")
+writeLines(model_string, "3-state-S&F.bug")
 ```
+
+
+## Model 2
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Code for JAGS Model String"
+model_string <- "
+model {
+  # Likelihood: observed transitions from each state i to j
+  for (i in 1:3) {
+    transitions[i, 1:3] ~ dmulti(P[i, 1:3], n[i])
+  }
+
+  # Generator matrix Q
+  # Off-diagonal priors
+  Q[1,2] ~ dgamma(1, 1)
+  Q[1,3] ~ dgamma(1, 1)
+  Q[2,1] ~ dgamma(1, 1)
+  Q[2,3] ~ dgamma(1, 1)
+
+  # Diagonal entries: row sums must be zero
+  Q[1,1] <- - (Q[1,2] + Q[1,3])
+  Q[2,2] <- - (Q[2,1] + Q[2,3])
+
+  # Absorbing state
+  Q[3,1] <- 0
+  Q[3,2] <- 0
+  Q[3,3] <- 0
+
+  # Shorthand for symbolic expressions
+  alpha <- Q[1,2] + Q[1,3]
+  beta  <- Q[2,1] + Q[2,3]
+  delta <- sqrt((alpha - beta)^2 + 4 * Q[1,2] * Q[2,1])
+
+  lambda1 <- (- (alpha + beta) + delta) / 2
+  lambda2 <- (- (alpha + beta) - delta) / 2
+
+  # Transition probabilities from state 1
+  P[1,1] <- ((lambda1 + alpha) / (lambda1 - lambda2)) * exp(lambda2 * t) +
+            ((lambda2 + alpha) / (lambda2 - lambda1)) * exp(lambda1 * t)
+
+  P[1,2] <- (Q[1,2] / (lambda1 - lambda2)) * (exp(lambda1 * t) - exp(lambda2 * t))
+  P[1,3] <- 1 - P[1,1] - P[1,2]
+
+  # Transition probabilities from state 2
+  P[2,1] <- (Q[2,1] / (lambda1 - lambda2)) * (exp(lambda1 * t) - exp(lambda2 * t))
+
+  P[2,2] <- ((lambda1 + beta) / (lambda1 - lambda2)) * exp(lambda2 * t) +
+            ((lambda2 + beta) / (lambda2 - lambda1)) * exp(lambda1 * t)
+
+  P[2,3] <- 1 - P[2,1] - P[2,2]
+
+  # Absorbing state
+  P[3,1] <- 0
+  P[3,2] <- 0
+  P[3,3] <- 1
+}
+
+
+"   
+writeLines(model_string, "3-state-S&F.bug")
+```
+
+
+
+
 
 ## Run the JAGS Model
 
@@ -141,9 +164,20 @@ writeLines(model_string, "3-state.bug")
 #| 
 # Initialize model
 
-r <- matrix(c(310,    72,  0,
-               97,  1716, 13,
-                0,     0, 94),  nrow=3, ncol=3, byrow=TRUE)
+# Original five state matrix for Serentide
+#     STW UTW Hex Pex TF
+# STW 210  60   0   1  1
+# UTW  88 641   0   4 13
+# Hex   0   0   0   0  0
+# Pex   1   0   0   0  1
+# TF    0   0   0   0 81
+
+
+
+
+r <- matrix(c(210,    61,  1,
+               89,   645, 14,
+                0,     0, 81),  nrow=3, ncol=3, byrow=TRUE)
 
 n <- rowSums(r)
  
@@ -151,7 +185,7 @@ n <- rowSums(r)
 data_list <- list(
   r = r,
   n = n,
-  t = 12)
+  t = 1)
 
 # Rate matrix Q
 
@@ -170,13 +204,10 @@ parameters.to.save = c("Q[1,1]", "Q[1,2]", "Q[1,3]",
                        "Q[3,1]", "Q[3,2]", "Q[3,3]",
                        "P[1,1]", "P[1,2]", "P[1,3]", 
                        "P[2,1]", "P[2,2]", "P[2,3]",
-                       "P[3,1]", "P[3,2]", "P[3,3]",
-                       "p[1,1]", "p[1,2]", "p[1,3]", 
-                       "p[2,1]", "p[2,2]", "p[2,3]", 
-                       "p[3,1]", "p[3,2]", "p[3,3]"
+                       "P[3,1]", "P[3,2]", "P[3,3]"
                        )
 
-jags_model <- jags.model(file = "3-state.bug",
+jags_model <- jags.model(file = "3-state-S&F.bug",
                          data = data_list,
                          n.chains = 3,
                          n.adapt = 100)
@@ -199,10 +230,8 @@ samples <- coda.samples(jags_model,
     "Q[2,1]", "Q[2,2]", "Q[2,3]", 
     "Q[3,1]", "Q[3,2]", "Q[3,3]", 
     "P[1,1]", "P[1,2]", "P[1,3]",  # cap P are the transition probabilities
-    "P[2,1]", "P[2,2]", "P[2,3]", 
-    "p[1,1]", "p[1,2]", "p[1,3]",  # small p are the normalized transition
-    "p[2,1]", "p[2,2]", "p[2,3]",  # probabilities use to stabilize the model
-    "p[3,1]", "p[3,2]", "p[3,3]"
+    "P[2,1]", "P[2,2]", "P[2,3]",   
+    "P[3,1]", "P[3,2]", "P[3,3]"
   ),
   n.iter = 50000,
   n.thin = 10
@@ -253,22 +282,6 @@ rowsum_Q
 ```
 This code constructs the matrix p of normalized transition probabilities matrix. These were computed by `JAGS` as a check on the stabiliy of the model. P and p should agree fairly closely.
 
-```{r}
-#| message: FALSE
-#| warning: FALSE
-#| eval: FALSE
-#| code-fold: true
-#| code-summary: "Show the code"
-
-p_rows <- smry_df[grep("^p\\[", rownames(smry_df)), ]
-p <- matrix(P_rows[,1], nrow = 3, ncol = 3, byrow = TRUE)
-colnames(p) <- states
-rownames(p) <- states
-p
-rowsum_p <- rowSums(p)
-names(rowsum_p) <- c("Row1", "Row2", "Row3")
-rowsum_p
-```
 
 
 This code sets up for plotting MCMC diagnostics. 
@@ -283,10 +296,10 @@ samples_df <- as.data.frame(as.mcmc(do.call(rbind, samples)))
 
 # Optional: print a few raw samples
 cat("\n Transition Probabilities:\n")
-round(head(samples_df[,1:6]),3)
+round(head(samples_df[,1:9]),3)
 
 cat("\n Process Rates:\n")
-round(head(samples_df[,7:15]),3)
+round(head(samples_df[,10:18]),3)
 ```
 
 ## Plots of MCMC Traces.
@@ -315,15 +328,26 @@ df_long <- do.call(rbind, lapply(1:length(samples), function(chain) {
 #| warning: FALSE
 #| code-fold: TRUE
 #| code-summary: "Show the code"
-ggplot(df_long %>% filter(parameter %in% c("P{1,1]", "P[1,2]", "P[1,3]", 
-                                           "P[2,1]", "P[2,2]", "P[2,3]", 
-                                           "P[3,1]", "P[3,2]", "P[3,3]")), 
-       aes(x = iteration, y = value, color = parameter)) +
+# Define the number of rows to sample
+n_sample <- 10000
+
+# Take a random sample of n_sample rows
+#f) gets the total number of rows in the data frame
+# sample(nrow(df), n_sample) generates n_sample random row indices
+# df[...] then subsets the data frame using these random indices
+random_sample_df <- df_long[sample(nrow(df_long), n_sample), ]
+ggplot(random_sample_df %>% filter(parameter %in% c("P[1,1]", "P[1,2]", "P[1,3]", 
+                                           "P[2,1]", "P[2,2]", "P[2,3]")), 
+       aes(x = iteration, y = value, color = chain)) +
   geom_line(alpha = 0.6) +
   facet_wrap(~parameter, scales = "free_y") +
-  labs(title = "Trace Plots", x = "Iteration", y = "Parameter Value") +
-  theme_minimal()
+  labs(title = "Trace Plots", x = "Iterations", y = "Parameter Value") +
+  theme_minimal() +
+  scale_x_continuous(breaks = n_sample)
 ```
+
+#
+
 
 ### Plot Posterior distributions.
 ```{r}
@@ -334,9 +358,10 @@ ggplot(df_long %>% filter(parameter %in% c("P{1,1]", "P[1,2]", "P[1,3]",
 ggplot(df_long %>% filter(parameter %in% c("P[1,1]", "P[1,2]", "P[1,3]", 
                                            "P[2,1]", "P[2,2]", "P[2,3]")), 
        aes(x = value, fill = parameter)) +
-  geom_density(alpha = 0.5) +
-  facet_wrap(~parameter, scales = "free") +
-  labs(title = "Posterior Densities", x = "Value", y = "Density") +
-  theme_minimal()
+       geom_density(alpha = 0.5) +
+       facet_wrap(~parameter, scales = "free") +
+       xlim(0,1) +
+       labs(title = "Posterior Densities", x = "Value", y = "Density") +
+       theme_minimal()
 
 ```

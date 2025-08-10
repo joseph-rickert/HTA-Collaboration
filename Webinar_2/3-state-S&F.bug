@@ -1,0 +1,54 @@
+
+model {
+  # Likelihood: observed transitions from each state i to j
+  for (i in 1:3) {
+    transitions[i, 1:3] ~ dmulti(P[i, 1:3], n[i])
+  }
+
+  # Generator matrix Q
+  # Off-diagonal priors
+  Q[1,2] ~ dgamma(1, 1)
+  Q[1,3] ~ dgamma(1, 1)
+  Q[2,1] ~ dgamma(1, 1)
+  Q[2,3] ~ dgamma(1, 1)
+
+  # Diagonal entries: row sums must be zero
+  Q[1,1] <- - (Q[1,2] + Q[1,3])
+  Q[2,2] <- - (Q[2,1] + Q[2,3])
+
+  # Absorbing state
+  Q[3,1] <- 0
+  Q[3,2] <- 0
+  Q[3,3] <- 0
+
+  # Shorthand for symbolic expressions
+  alpha <- Q[1,2] + Q[1,3]
+  beta  <- Q[2,1] + Q[2,3]
+  delta <- sqrt((alpha - beta)^2 + 4 * Q[1,2] * Q[2,1])
+
+  lambda1 <- (- (alpha + beta) + delta) / 2
+  lambda2 <- (- (alpha + beta) - delta) / 2
+
+  # Transition probabilities from state 1
+  P[1,1] <- ((lambda1 + alpha) / (lambda1 - lambda2)) * exp(lambda2 * t) +
+            ((lambda2 + alpha) / (lambda2 - lambda1)) * exp(lambda1 * t)
+
+  P[1,2] <- (Q[1,2] / (lambda1 - lambda2)) * (exp(lambda1 * t) - exp(lambda2 * t))
+  P[1,3] <- 1 - P[1,1] - P[1,2]
+
+  # Transition probabilities from state 2
+  P[2,1] <- (Q[2,1] / (lambda1 - lambda2)) * (exp(lambda1 * t) - exp(lambda2 * t))
+
+  P[2,2] <- ((lambda1 + beta) / (lambda1 - lambda2)) * exp(lambda2 * t) +
+            ((lambda2 + beta) / (lambda2 - lambda1)) * exp(lambda1 * t)
+
+  P[2,3] <- 1 - P[2,1] - P[2,2]
+
+  # Absorbing state
+  P[3,1] <- 0
+  P[3,2] <- 0
+  P[3,3] <- 1
+}
+
+
+

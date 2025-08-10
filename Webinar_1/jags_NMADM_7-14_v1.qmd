@@ -792,7 +792,7 @@ n <- rowSums(r)
 data_list <- list(
   r = r,
   n = n,
-  u = 20)
+  u = 1)
 
 
  inits <- list(lambda11 = 0,

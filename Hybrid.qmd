@@ -1,0 +1,78 @@
+---
+title: "Hybrid_4-state-Model"
+format: revealjs
+---
+
+##
+
+```{r}
+library('dplyr')
+library('ggplot2')
+library('stringr')
+library('tidyverse')
+library('matrixcalc')
+library('LaplacesDemon') # for Dirichlet distribution
+library('diagram')
+```
+## Hybrid 4-State Model: DTMC and CTMC
+
+## Step 1: Estimate DTMC Transition Matrix from the State Table
+This is standard practice if your state table contains counts of transitions between states: The empirical DTMC matrix 𝑃can be estimated by normalizing row-wise transition counts.This assumes you’re sampling transitions at fixed discrete intervals or observing transitions without timing.
+
+### Limitation:
+DTMC ignores sojourn times, which are critical in CTMCs. If the time intervals vary or aren’t known, this step risks losing temporal resolution.
+
+
+## Step 2: Estimate Expected Time Spent (Sojourn Time) in Each State
+You propose using the number of visits to each state as a proxy:
+
+If you know total observation time and the number of visits per state, you could estimate average duration per visit: $$ \text{Expected time in state } i \approx \frac{\text{Total time in } i}{\text{Number of visits to } i} $$
+
+
+
+
+
+### Limitation: This assumes homogeneous sojourn times across visits, which might not hold if transitions are history-dependent or rates vary.
+
+
+## Step 3: Estimate CTMC Generator Matrix from DTMC and Expected Times
+This is where things get tricky. The generator matrix 𝑄 relates to the DTMC matrix 
+𝑃 via: $$ Q = \frac{P - I}{\Delta t} $$ when 𝑃is derived from a uniform discrete time step Δ𝑡. But in
+this case we need to reconstruct 𝑄via $$ Q_{ij} \approx \frac{P_{ij}}{E[\text{sojourn time in state } i]}
+
+$$
+
+Diagonal elements then follow: $$ Q_{ii} = - \sum_{j \neq i} Q_{ij} $$
+
+
+## Risk: 
+This method assumes exponentially distributed sojourn times (i.e. memoryless transitions) and accurat estimation of both 𝑃 and expected dwell times. Aggregated data may obscure these subtleties.
+
+
+## Assessment 
+Your approach is viable if:
+
+* The state table contains detailed counts of transitions (ideally with timestamps or time spent).
+* Sojourn time estimates are reasonably accurate.
+* The assumptions of the CTMC (exponential transitions, time-homogeneity) roughly hold.
+* It might be better to treat it as purely discrete and fit a DTMC model, or consider an EM algorithm to infer rates under partial observability.
+
+
+
+```{r}
+# Example: 4x4 count matrix
+state_counts <- matrix(c(310,70,2,0,
+                   96, 1683, 11, 13,
+                   1, 11, 1, 0,
+                   0, 0, 0, 94), nrow=4, byrow=TRUE)
+
+# Normalize row-wise to get DTMC transition probabilities
+P_dtmc <- prop.table(state_counts, margin = 1)
+
+# Hypothetical expected dwell times (replace with actual estimates)
+expected_sojourn <- c(5.0, 4.2, 3.8, 6.0)  # time spent per visit, per state
+
+
+```
+
+
