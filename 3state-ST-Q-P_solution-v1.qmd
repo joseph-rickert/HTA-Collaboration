@@ -1,0 +1,160 @@
+---
+title: "3state-ST-Q-P_solution"
+format: html
+---
+
+# LOOKS LIKE A DEADEND BECAUSE OF THE MIS_SPECIFIED TIME SOLUTION WITH NO WAY TO CORRECT
+
+What Should Be Used Instead
+Need a vector time[i] that reflects the total time the system spent in state i before transitioning. This could come from:
+
+Empirical dwell times: measured directly from patient trajectories or simulations.
+
+Estimated exposure: if each subject contributes 1 unit of time in each state, you can ise time <- rep(1, N - 1)
+
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Show the code"
+library(rjags)
+library(expm)
+```
+
+
+
+# State Table
+
+```{r}
+#| code-fold: TRUE
+#| code-summary: "Show the code"
+s_state <- matrix(
+  c(
+    210,  61,  1,
+     89, 645, 14,
+     0,    0, 81
+    ),  
+    nrow=3, byrow=TRUE,
+    dimnames = list(c("S1", "S2", "S3"), c("S1", "S2", "S3"))
+)
+
+```
+
+### JAGS Model In R
+
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Show the code"
+model_string <- "
+model {
+  for (i in 1:(N-1)) {
+    for (j in 1:N) {
+      q_raw[i,j] ~ dgamma(0.1, 0.1)
+      Q[i,j] <- (1 - equals(i,j)) * q_raw[i,j]
+    }
+
+    Q_diag[i] <- -sum(Q[i,1:N])
+  }
+
+  for (i in 1:(N-1)) {
+    for (j in 1:N) {
+      Q_full[i,j] <- equals(i,j) * Q_diag[i] + (1 - equals(i,j)) * Q[i,j]
+    }
+  }
+
+  for (j in 1:N) {
+    Q_full[N,j] <- 0
+  }
+
+  for (i in 1:(N-1)) {
+    for (j in 1:N) {
+      is_offdiag[i,j] <- 1 - equals(i,j)
+      s_state[i,j] ~ dpois(is_offdiag[i,j] * Q[i,j] * time[i])
+    }
+  }
+}
+"
+
+```
+
+## Data Preparation
+
+```{r}
+states <- c("S1", "S2", "S3")
+N <- length(states)
+
+s_state <- matrix(
+  c(210,  61,  1,
+     89, 645, 14,
+      0,   0, 81),
+  nrow=3, byrow=TRUE,
+  dimnames = list(states, states)
+)
+
+time <- rowSums(s_state)
+
+data_jags <- list(
+  s_state = s_state,
+  time = time,
+  N = N
+)
+
+
+
+```
+
+### Run JAGS
+
+```{r}
+#library(rjags)
+library(rjags)
+
+params <- c("Q")
+model <- jags.model(textConnection(model_string), data = data_jags, n.chains = 3)
+update(model, 1000)
+samples <- coda.samples(model, variable.names = params, n.iter = 5000)
+
+
+
+```
+
+
+
+### Extract Posterior Mean
+
+```{r}
+samples <- coda.samples(model, variable.names = c("Q", "Q_diag"), n.iter = 5000)
+
+Q_summary <- summary(samples)$statistics
+Q_est <- matrix(0, nrow = N, ncol = N)
+
+for (i in 1:(N-1)) {
+  for (j in 1:N) {
+    if (i == j) {
+      varname <- paste0("Q_diag[", i, "]")
+      Q_est[i, j] <- Q_summary[varname, "Mean"]
+    } else {
+      varname <- paste0("Q[", i, ",", j, "]")
+      Q_est[i, j] <- Q_summary[varname, "Mean"]
+    }
+  }
+}
+
+Q_est[N, ] <- 0  # Absorbing state
+
+
+
+```
+
+### Cmpute Transition Probabilities
+
+```{r}
+
+
+t <- 1  # time interval
+P_t <- expm(Q_est * t)
+P_t
+```
+

@@ -1,0 +1,148 @@
+---
+title: "3state-ST-Q-P_solution"
+format: html
+---
+
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Show the code"
+library(rjags)
+library(coda)
+library(expm)
+```
+
+
+
+# State Table
+
+```{r}
+#| code-fold: TRUE
+#| code-summary: "Show the code"
+s_state <- matrix(
+  c(
+    210,  61,  1,
+     89, 645, 14,
+     0,    0, 81
+    ),  
+    nrow=3, byrow=TRUE,
+    dimnames = list(c("S1", "S2", "S3"), c("S1", "S2", "S3"))
+)
+
+```
+
+### JAGS Model 
+```{r}
+
+model_string <- "
+model {
+
+  # STEP 1: Priors for off-diagonal transition rates
+  for (i in 1:(N-1)) {
+    for (j in 1:N) {
+      q_raw[i,j] ~ dgamma(0.1, 0.1)
+      is_offdiag[i,j] <- 1 - equals(i,j)
+      Q_temp[i,j] <- is_offdiag[i,j] * q_raw[i,j]
+    }
+  }
+
+  # STEP 2: Compute row sums for diagonals
+  for (i in 1:(N-1)) {
+    row_sum[i] <- sum(Q_temp[i,1:N])
+  }
+
+  # STEP 3: Construct full generator matrix Q_full
+  for (i in 1:(N-1)) {
+    for (j in 1:N) {
+      Q_full[i,j] <- equals(i,j) * (-row_sum[i]) + (1 - equals(i,j)) * Q_temp[i,j]
+    }
+  }
+
+  # STEP 4: Absorbing state — last row is zero
+  for (j in 1:N) {
+    Q_full[N,j] <- 0
+  }
+
+  # STEP 5: Likelihood — transient rows only
+  for (i in 1:(N-1)) {
+    for (j in 1:N) {
+      lambda[i,j] <- Q_full[i,j] * time[i]
+      s_state[i,j] ~ dpois(lambda[i,j])
+    }
+  }
+
+}
+"
+
+
+
+
+
+
+
+
+
+
+
+
+```
+
+### R Setup
+
+```{r}
+# library(rjags)
+# library(coda)
+# library(expm)
+
+s_state <- matrix(
+  c(210,  61,  1,
+     89, 645, 14),
+  nrow = 2, byrow = TRUE  # Only transient rows
+)
+
+time <- c(1, 1)
+
+jags_data <- list(
+  s_state = s_state,
+  time = time,
+  N = 3  # Still define full Q matrix with absorbing state
+)
+
+
+
+```
+
+### Run JAGS
+
+```{r}
+model <- jags.model(textConnection(model_string), data = jags_data, n.chains = 2)
+update(model, 1000)
+samples <- coda.samples(model, variable.names = c("q12", "q13", "q21", "q23"), n.iter = 5000)
+
+summary(samples)
+
+```
+
+### Compute Transition Matrix P(t) and Output Results
+
+```{r}
+# Time horizon
+t <- 1
+
+# Matrix exponential
+P_t <- expm(Q_mean * t)
+
+# Normalize rows to ensure stochasticity
+P_t <- P_t / rowSums(P_t)
+
+# Display results
+cat("Posterior mean intensity matrix Q:\n")
+print(round(Q_mean, 4))
+
+cat("\nTransition probability matrix P(t = 1):\n")
+print(round(P_t, 4))
+
+```
+
+

@@ -1,0 +1,290 @@
+---
+title: "3-state-S&F"
+format: html
+---
+
+### Load R packages
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Show the code"
+library('dplyr')
+library('ggplot2')
+library('stringr')
+library('tidyverse')
+library('matrixcalc')
+library('LaplacesDemon') # for Dirichlet distribution
+library('diagram')
+```
+
+### Helper Functions
+
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Show the code"
+# names for transition probabilities
+trans_names <- function(x) {
+  transitions <- paste(x, "-", 1:5, sep = "")
+  return(transitions)
+}
+
+
+sim_res <- function(matrix, from_state, n_sims = 20000) {
+  # Bayesian simulation using Dirichlet conjugate prior
+  # matrix is the matrix of observed states
+  # from_state is the row index of the initial state
+  # n_sims is the number of simulations to run
+  priors <- matrix(rep(1, 6), nrow = 3) # Prior parameters for Dirichlet dist HERE
+  dist <- matrix[from_state, ] + priors[from_state, ]
+  res <- rdirichlet(n_sims, dist)
+  colnames(res) <- paste(from_state, "-", 1:3, sep = "")
+  return(res)
+}
+
+smry <- function(res_matrix) {
+  apply(res_matrix, 2, function(x) {
+    c(
+      mean = mean(x),
+      lower = quantile(x, probs = 0.025),
+      upper = quantile(x, probs = 0.975)
+    )
+  })
+}
+
+plot_row_dist <- function(matrix, treatment, start_state) {
+  # code to plot the posterior marginal distributions
+  # Inputs:
+  # matrix the simulation matrix for the health state of interest
+  # treatment: either Seretide or Fluticasone as a character
+  # start_state: name of health state that agrees with matrix as a character
+  treatment <- treatment
+  start_state <- start_state
+  plot_df <- matrix %>%
+    as.data.frame() %>%
+    pivot_longer(cols = everything(), names_to = "transitions", values_to = "prob")
+
+  ggplot(plot_df, aes(x = prob)) +
+    geom_histogram(aes(y = after_stat(density)), bins = 15, fill = "lightgrey", color = "black") + # histogram for each category
+    geom_density(aes(y = after_stat(density)), color = "red", linewidth = 0.5) + # density line
+    scale_x_continuous(breaks = scales::pretty_breaks(n = 5)) +
+    xlab("probability") +
+    facet_wrap(~transitions, scales = "free") + # faceting for each category
+    labs(x = "Probability", y = " ") +
+    ggtitle(paste(treatment, ": Posterior State Transition Probabilities for states starting in", start_state))
+}
+
+
+# Function to compute the probability of being in each state at time t
+prob_at_time <- function(matrix, time, i_state) {
+  u <- i_state
+  index_eq_1 <- which(u == 1)
+  m <- matrix.power(matrix, time)
+  u_t <- u %*% m # Distribution at time t
+  rownames(u_t) <- names(states)[index_eq_1]
+  round(u_t, 2)
+}
+
+
+time_in_state2 <- function(tpm, n) {
+  # Function to compute the expected time spent in each state
+  # tpm - the transition probability matrix
+  # n - the number of time periods
+  I <- diag(3) # Initial state vectors
+  s_time <- matrix(0, nrow = 3, ncol = 3)
+  m <- matrix(0, nrow = 3, ncol = 3)
+  for (i in 1:3) {
+    for (j in 1:n) {
+      m[i, ] <- I[i, ] %*% matrix.power(tpm, j)
+      s_time[i, ] <- s_time[i, ] + m[i, ]
+      colnames(s_time) <- c("STW", "UTW", "TF")
+      rownames(s_time) <- c("STW", "UTW", "TF")
+    }
+  }
+  return(s_time)
+}
+```
+
+
+
+### Load the Data
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Show the code"
+states <- c(
+  "STW" = "sucessfully treated week",
+  "UTW" = "unsucessfully treated week",
+  "TF" = "treatment failure"
+)
+
+treatments <- c("Seretide", "Fluticasone")
+
+# s_state <- matrix(
+#   c(
+#     210, 60, 0, 1, 1,
+#     88, 641, 0, 4, 13,
+#     0, 0, 0, 0, 0,
+#     1, 0, 0, 0, 1,
+#     0, 0, 0, 0, 81
+#   ),
+#   nrow = 5, byrow = TRUE,
+#   dimnames = list(names(states), names(states))
+# )
+
+s_state <- matrix(
+  c(
+    210,  61,  1,
+     89, 645, 14,
+     0,    0, 81
+    ),  
+    nrow=3, ncol=3, byrow=TRUE,
+   dimnames = list(names(states), names(states))
+)
+
+# f_state <- matrix(
+#   c(
+#     66, 32, 0, 0, 2,
+#     42, 752, 0, 5, 20,
+#     0, 0, 0, 0, 0,
+#     0, 4, 0, 1, 0,
+#     0, 0, 0, 0, 156
+#   ),
+#   nrow = 5, byrow = TRUE,
+#   dimnames = list(names(states), names(states))
+# )
+
+ f_state <- matrix(
+  c(
+    66, 32, 2,
+    42, 762, 20,
+    0, 0, 156
+  ),
+  nrow = 3, ncol = 3, byrow = TRUE,
+  dimnames = list(names(states), names(states))
+)
+
+
+```
+
+
+### Serentide Simulations
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Serentide Simulation Code"
+s_STW_sim <- sim_res(matrix = s_state, from_state = 1)
+s_STW_smry <- smry(s_STW_sim)
+
+s_UTW_sim <- sim_res(matrix = s_state, from_state = 2)
+s_UTW_smry <- smry(s_UTW_sim)
+
+
+```
+
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Serentide Plot Code"
+
+plot_row_dist(matrix = s_STW_sim, treatment = "Seretide", start_state = "STW")
+```
+
+### Fluticaseon Simulations
+
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Flucticone Simulation Code"
+f_STW_sim <- sim_res(matrix = f_state, from_state = 1)
+f_STW_smry <- smry(f_STW_sim)
+
+f_UTW_sim <- sim_res(matrix = f_state, from_state = 2)
+f_UTW_smry <- smry(f_UTW_sim)
+```
+
+
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Flucticone Plot Codee"
+# code for histogram of rd_df data frame
+plot_row_dist(matrix = f_STW_sim, treatment = "Fluticasone", start_state = "STW")
+```
+
+### Transition Probabilities
+
+```{r}
+# Seretide transition Probabilities
+s_TP <- rbind(
+  s_STW_smry[1, ],
+  s_UTW_smry[1, ]
+  )
+
+s_TP <- rbind(s_TP, c(0, 0, 1)) # Add the absorbing state TF
+colnames(s_TP) <- c("STW", "UTW", "TF")
+rownames(s_TP) <- c("STW", "UTW", "TF")
+# s_TP
+
+# Fluticasone transition Probabilities
+f_TP <- rbind(
+  f_STW_smry[1, ],
+  f_UTW_smry[1, ]
+  
+)
+f_TP <- rbind(f_TP, c(0, 0, 1)) # Add the absorbing state TF
+colnames(f_TP) <- c("STW", "UTW", "TF")
+rownames(f_TP) <- c("STW", "UTW", "TF")
+```
+
+
+```{r}
+#| code-fold: TRUE
+#| code-summary: "Serentide Transition Probabilities"
+round(s_TP, 2)
+```
+
+```{r}
+#| code-fold: TRUE
+#| code-summary: "Flucticone Simulation Code"
+round(f_TP, 2)
+```
+
+### Extract the Q Matrix
+
+```{r}
+#| code-fold: TRUE
+#| code-summary: "Show the code"
+Q_s <- s_TP[1:2, 1:2] # Extract the sub-matrix of transition probabilities for non-absorbing states
+
+rownames(Q_s) <- names(states)[1:2]
+colnames(Q_s) <- names(states)[1:2] # Set the row and column names to the state names
+# round(Q_s,3)
+
+Q_f <- f_TP[1:2, 1:2] # Extract the sub-matrix of transition probabilities for non-absorbing states
+
+rownames(Q_f) <- names(states)[1:2]
+colnames(Q_f) <- names(states)[1:2] # Set the row and column names to the state names
+# round(Q_f,3)
+```
+
+
+```{r}
+#| code-fold: TRUE
+#| code-summary: "Serentide Q Matrix"
+round(Q_s, 2)
+```
+
+```{r}
+#| code-fold: TRUE
+#| code-summary: "FlucticonseQ Matrix"
+round(Q_f, 2)
+```
+
