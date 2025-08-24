@@ -120,24 +120,28 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <details>
 <summary>Show the code</summary>
 <div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Example state table: ST[i,j] = transitions from i to j</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>ST <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="dv">0</span>, <span class="dv">12</span>, <span class="dv">5</span>,</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="dv">8</span>, <span class="dv">0</span>, <span class="dv">7</span>,</span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">20</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>), <span class="at">nrow =</span> <span class="dv">3</span>, <span class="at">byrow =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Total time spent in states 1 and 2</span></span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>T_vec <span class="ot">&lt;-</span> <span class="fu">rowSums</span>(ST)[<span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>]  <span class="co"># c(17, 15)</span></span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>data_jags <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">ST =</span> ST,</span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">T =</span> <span class="fu">as.numeric</span>(T_vec)  <span class="co"># Ensure it's a numeric vector</span></span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>ST <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(<span class="dv">210</span>,  <span class="dv">61</span>,  <span class="dv">1</span>,</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>                <span class="dv">89</span>, <span class="dv">645</span>, <span class="dv">14</span>,</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>                <span class="dv">0</span>,    <span class="dv">0</span>, <span class="dv">81</span>),  <span class="at">nrow=</span><span class="dv">3</span>, <span class="at">ncol=</span><span class="dv">3</span>, <span class="at">byrow=</span><span class="cn">TRUE</span>)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co"># ST &lt;- matrix(c(</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">#   10, 12, 5,   # from state 1: 12 to state 2, 5 to state 3</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">#   8, 10, 7,    # from state 2: 8 to state 1, 7 to state 3</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">#   0, 0, 20    # from state 3: 20 self-transitions, no exits</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co"># ), nrow = 3, byrow = TRUE)</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="co"># Total time spent in states 1 and 2</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>T_vec <span class="ot">&lt;-</span> <span class="fu">rowSums</span>(ST)[<span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>]  <span class="co"># c(17, 15)</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>data_jags <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">ST =</span> ST,</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">T =</span> <span class="fu">as.numeric</span>(T_vec)  <span class="co"># Ensure it's a numeric vector</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
 </section>
-<section id="the-jags-model-sting" class="level3">
-<h3 class="anchored" data-anchor-id="the-jags-model-sting">The JAGS Model Sting</h3>
+<section id="the-jags-model" class="level3">
+<h3 class="anchored" data-anchor-id="the-jags-model">The JAGS Model</h3>
 <div class="cell">
 <details>
 <summary>Show the code</summary>
@@ -239,41 +243,31 @@ Initializing model</code></pre>
 <summary>Show the code</summary>
 <div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>samples_df <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(<span class="fu">as.mcmc</span>(<span class="fu">do.call</span>(rbind, samples)))</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>smry <span class="ot">&lt;-</span> <span class="fu">summary</span>(samples)</span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>smry</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>Mean <span class="ot">&lt;-</span> smry<span class="sc">$</span>statistics[, <span class="st">"Mean"</span>]</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>Q_smry <span class="ot">&lt;-</span> <span class="fu">cbind</span>(Mean, smry<span class="sc">$</span>quantiles)</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>Q_smry</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>
-Iterations = 1001:6000
-Thinning interval = 1 
-Number of chains = 3 
-Sample size per chain = 5000 
-
-1. Empirical mean and standard deviation for each variable,
-   plus standard error of the mean:
-
-          Mean     SD Naive SE Time-series SE
-Q[1,1] -1.0586 0.2435 0.001988       0.001951
-Q[2,1]  0.5643 0.1898 0.001550       0.001550
-Q[3,1]  0.0000 0.0000 0.000000       0.000000
-Q[1,2]  0.7261 0.2023 0.001652       0.001641
-Q[2,2] -1.0649 0.2601 0.002124       0.002171
-Q[3,2]  0.0000 0.0000 0.000000       0.000000
-Q[1,3]  0.3325 0.1359 0.001109       0.001109
-Q[2,3]  0.5006 0.1762 0.001439       0.001444
-Q[3,3]  0.0000 0.0000 0.000000       0.000000
-
-2. Quantiles for each variable:
-
-          2.5%     25%     50%     75%   97.5%
-Q[1,1] -1.5810 -1.2135 -1.0410 -0.8853 -0.6374
-Q[2,1]  0.2591  0.4277  0.5428  0.6763  0.9930
-Q[3,1]  0.0000  0.0000  0.0000  0.0000  0.0000
-Q[1,2]  0.3845  0.5825  0.7072  0.8498  1.1692
-Q[2,2] -1.6325 -1.2261 -1.0406 -0.8783 -0.6240
-Q[3,2]  0.0000  0.0000  0.0000  0.0000  0.0000
-Q[1,3]  0.1227  0.2336  0.3139  0.4117  0.6471
-Q[2,3]  0.2209  0.3729  0.4787  0.6045  0.9068
-Q[3,3]  0.0000  0.0000  0.0000  0.0000  0.0000</code></pre>
+<pre><code>               Mean          2.5%          25%          50%          75%
+Q[1,1] -0.234954961 -0.2961230609 -0.254203056 -0.233871845 -0.214246208
+Q[2,1]  0.120072036  0.0964100640  0.111481843  0.119680395  0.128344178
+Q[3,1]  0.000000000  0.0000000000  0.000000000  0.000000000  0.000000000
+Q[1,2]  0.227584398  0.1741057891  0.207294564  0.226383281  0.246378454
+Q[2,2] -0.140123235 -0.1682249711 -0.148939812 -0.139725132 -0.130797958
+Q[3,2]  0.000000000  0.0000000000  0.000000000  0.000000000  0.000000000
+Q[1,3]  0.007370563  0.0008936182  0.003594339  0.006172101  0.009907021
+Q[2,3]  0.020051200  0.0113078753  0.016396620  0.019590933  0.023233407
+Q[3,3]  0.000000000  0.0000000000  0.000000000  0.000000000  0.000000000
+             97.5%
+Q[1,1] -0.18054314
+Q[2,1]  0.14614772
+Q[3,1]  0.00000000
+Q[1,2]  0.28715681
+Q[2,2] -0.11441072
+Q[3,2]  0.00000000
+Q[1,3]  0.02051109
+Q[2,3]  0.03132713
+Q[3,3]  0.00000000</code></pre>
 </div>
 </div>
 </section>
@@ -392,24 +386,21 @@ Q[3,3]  0.0000  0.0000  0.0000  0.0000  0.0000</code></pre>
 <span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>t <span class="ot">&lt;-</span> <span class="dv">12</span></span>
 <span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>P <span class="ot">&lt;-</span> <span class="fu">compute_P</span>(t, q12, q13, q21, q23)</span>
-<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a><span class="fu">round</span>(P,<span class="dv">4</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(P) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"State 1"</span>,<span class="st">"State 2"</span>, <span class="st">"State 3"</span>)</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a><span class="fu">rownames</span>(P) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"State 1"</span>, <span class="st">"State 2"</span>, <span class="st">"State 3"</span>)</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a><span class="fu">round</span>(P,<span class="dv">4</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>       [,1]   [,2]   [,3]
-[1,] 0.0032 0.0036 0.9932
-[2,] 0.0028 0.0032 0.9940
-[3,] 0.0000 0.0000 1.0000</code></pre>
+<pre><code>        State 1 State 2 State 3
+State 1   0.309  0.5401  0.1509
+State 2   0.285  0.5340  0.1810
+State 3   0.000  0.0000  1.0000</code></pre>
 </div>
 </div>
 </section>
 </section>
 <section id="the-differential-equations" class="level2">
 <h2 class="anchored" data-anchor-id="the-differential-equations">The Differential Equations</h2>
-<section id="model-structure" class="level3">
-<h3 class="anchored" data-anchor-id="model-structure">Model Structure</h3>
-</section>
-</section>
-<section id="all-of-the-math-the-differential-equations" class="level2">
-<h2 class="anchored" data-anchor-id="all-of-the-math-the-differential-equations">All of the Math: The Differential Equations</h2>
+<p>This section shows the steps to solve the differential equations for solving the Kolmogorov Forward Equations for the 3-state continuous time markov chain where the third state is an absorbing state.</p>
 <section id="step-1-define-the-generator-matrix-𝑄" class="level3">
 <h3 class="anchored" data-anchor-id="step-1-define-the-generator-matrix-𝑄">Step 1: Define the Generator Matrix 𝑄</h3>
 <p>We assume:</p>

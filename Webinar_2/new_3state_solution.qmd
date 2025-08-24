@@ -149,8 +149,9 @@ samples <- coda.samples(jags_model,
 #| code-summary: "Show the code"
 samples_df <- as.data.frame(as.mcmc(do.call(rbind, samples)))
 smry <- summary(samples)
-
-smry
+Mean <- smry$statistics[, "Mean"]
+Q_smry <- cbind(Mean, smry$quantiles)
+round(Q_smry, 4)
 ```
 
 
@@ -276,6 +277,10 @@ Compute Transition Probabilities
 
 
 ```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Show the code"
 # Define rates
 q12 <- mean(samples_df$"Q[1,2]")
 q13 <- mean(samples_df$"Q[1,3]")
