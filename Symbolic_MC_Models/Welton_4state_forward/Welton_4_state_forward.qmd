@@ -1,0 +1,462 @@
+---
+title: "Welton_4_state_forward"
+format: html
+---
+
+```{r}
+### 1. Load packages
+library(R2jags)
+library(tidyverse)
+library(coda)
+library(abind)
+
+
+model_code <- textConnection("
+model{
+#Multinomial likelihood for observed data
+for (i in 1:3){ r[i,1:4] ~ dmulti(P[i,1:4],n[i]) }
+#Find transition probabilities (for given time) in terms of rates.
+Sum transition rate from #state i, lambda[i] denoted s[i] for
+brevity.
+for (i in 1:3){
+s[i]<- sum(G[i,(i+1):4])
+e[i]<- exp(-s[i]*t.obs)
+P[i,4]<- 1 - sum(P[i,1:3])
+#Give exponential priors for unknown transition rate parameters
+for (j in (i+1):4){G[i,j] ~ dexp(.001)}
+G[i,i]<- -lambda[i]
+}
+P[1,1]<-e[1]
+P[1,2]<- G[1,2]*(e[2] - e[1])/(s[1] - s[2])
+P[1,3]<- G[1,3]*(e[3] - e[1])/(s[1] - s[3]) + G[1,2]*G[2,3]*((s[1]-s[2])*e[3]
+- (s[1]-s[3])*e[2] + (s[2]-s[3])*e[1])/((s[1]-s[2])*(s[1]-s[3])*(s[2]-s[3]))
+P[2,2]<-e[2]
+P[2,3]<- G[2,3]*(e[3] - e[2])/(s[2] - s[3])
+P[3,3]<-e[3]
+P[2,1]<-0
+P[3,1]<-0
+P[3,2]<-0
+
+#Find P(t) where t = t.new
+for (i in 1:3){
+e.t[i]<- exp(-s[i]*t.new)
+P.t[i,4]<- 1 - sum(P.t[i,i:3])
+}
+P.t[1,1]<-e.t[1]
+P.t[1,2]<- G[1,2]*(e.t[2] - e.t[1])/(s[1] - s[2])
+P.t[1,3]<- G[1,3]*(e.t[3] - e.t[1])/(s[1] - s[3])
++ G[1,2]*G[2,3]*((s[1]-s[2])*e.t[3] - (s[1]-s[3])*e.t[2]
++ (s[2]-s[3])*e.t[1])/((s[1]-s[2])*(s[1]-s[3])*(s[2]-s[3]))
+P.t[2,2]<-e.t[2]
+P.t[2,3]<- G[2,3]*(e.t[3] - e.t[2])/(s[2] - s[3])
+P.t[3,3]<-e.t[3]
+}
+")
+
+#Data
+list( r=structure(.Data=c(20,6,4,2,
+0,5,5,3,
+0,0,3,7), .Dim=c(3,4)),
+n=c(32,13,10), t.obs=2, t.new=.25)
+#Initial Values
+list(G=structure(.Data=c(NA,1,1,1,
+NA,NA,1,1,
+NA,NA,NA,1
+), .Dim=c(3,4)))
+
+### 4. Fit model
+set.seed(42)
+results <- jags(
+  data = data_list,
+  inits = inits,
+  parameters.to.save = parameters.to.save,
+  model.file = model_code,
+  n.chains = 1,
+  n.iter = 10000,
+  n.burnin = 1000,
+  n.thin = 10
+)
+```
+
+
+
+
+NEW
+
+```{r}
+library(tibble)
+library(ggplot2)
+
+```
+
+```{r}
+library(R2jags)
+library(tidyverse)
+library(coda)
+library(abind)
+
+# JAGS model code
+model_code <- textConnection("
+model {
+  for (i in 1:3) {
+    r[i, 1:4] ~ dmulti(P[i, 1:4], n[i])
+  }
+
+  for (i in 1:3) {
+    for (j in 1:4) {
+      is_offdiag[i, j] <- step(j - i)
+      G_temp[i, j] ~ dunif(0, 5)
+      G[i, j] <- ifelse(j == i, -sum(G_temp[i, (i+1):4]),
+                     ifelse(j > i, G_temp[i, j], 0))
+    }
+
+    s[i] <- -G[i, i]
+    e[i] <- exp(-s[i] * t_obs)
+  }
+
+  # Transition probabilities at t_obs
+  P[1,1] <- e[1]
+  P[1,2] <- G[1,2] * (e[2] - e[1]) / (s[1] - s[2])
+  P[1,3] <- G[1,3] * (e[3] - e[1]) / (s[1] - s[3]) +
+            G[1,2] * G[2,3] * ((s[1] - s[2]) * e[3] -
+                               (s[1] - s[3]) * e[2] +
+                               (s[2] - s[3]) * e[1]) /
+            ((s[1] - s[2]) * (s[1] - s[3]) * (s[2] - s[3]))
+  P[1,4] <- 1 - sum(P[1, 1:3])
+
+  P[2,1] <- 0
+  P[2,2] <- e[2]
+  P[2,3] <- G[2,3] * (e[3] - e[2]) / (s[2] - s[3])
+  P[2,4] <- 1 - sum(P[2, 1:3])
+
+  P[3,1] <- 0
+  P[3,2] <- 0
+  P[3,3] <- e[3]
+  P[3,4] <- 1 - sum(P[3, 1:3])
+
+  # Transition probabilities at t_new
+  for (i in 1:3) {
+    e_t[i] <- exp(-s[i] * t_new)
+  }
+
+  P_t[1,1] <- e_t[1]
+  P_t[1,2] <- G[1,2] * (e_t[2] - e_t[1]) / (s[1] - s[2])
+  P_t[1,3] <- G[1,3] * (e_t[3] - e_t[1]) / (s[1] - s[3]) +
+              G[1,2] * G[2,3] * ((s[1] - s[2]) * e_t[3] -
+                                 (s[1] - s[3]) * e_t[2] +
+                                 (s[2] - s[3]) * e_t[1]) /
+              ((s[1] - s[2]) * (s[1] - s[3]) * (s[2] - s[3]))
+  P_t[1,4] <- 1 - sum(P_t[1, 1:3])
+
+  P_t[2,1] <- 0
+  P_t[2,2] <- e_t[2]
+  P_t[2,3] <- G[2,3] * (e_t[3] - e_t[2]) / (s[2] - s[3])
+  P_t[2,4] <- 1 - sum(P_t[2, 1:3])
+
+  P_t[3,1] <- 0
+  P_t[3,2] <- 0
+  P_t[3,3] <- e_t[3]
+  P_t[3,4] <- 1 - sum(P_t[3, 1:3])
+}
+")
+
+# Data
+data_list <- list(
+  r = matrix(c(
+    20, 6, 4, 2,
+    0, 5, 5, 3,
+    0, 0, 3, 7
+  ), nrow = 3, byrow = TRUE),
+  n = c(32, 13, 10),
+  t_obs = 2,
+  t_new = 0.25
+)
+
+# Initial values
+inits <- function() {
+  list(G_temp = matrix(runif(12, 0.1, 1), nrow = 3, ncol = 4))
+}
+
+# Parameters to monitor
+parameters.to.save <- c("G", "P", "P_t")
+
+# Run JAGS
+set.seed(42)
+results <- jags(
+  data = data_list,
+  inits = inits,
+  parameters.to.save = parameters.to.save,
+  model.file = model_code,
+  n.chains = 1,
+  n.iter = 10000,
+  n.burnin = 1000,
+  n.thin = 10
+)
+
+# Summary
+print(results)
+
+```
+
+
+Nice—let’s visualize those posteriors! To plot the posterior distributions of the transition probabilities from your JAGS model, we’ll use the coda output stored in results$BUGSoutput$sims.list. Here’s how to extract and plot the marginal posterior densities for selected P[i,j] and P_t[i,j] values:
+
+```{r}
+# Extract posterior samples
+sims <- results$BUGSoutput$sims.list
+
+# Choose a few transition probabilities to illustrate
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+
+# Convert to tidy format for plotting
+plot_data <- tibble(
+  `P[1,2]` = sims$P[,1,2],
+  `P[1,3]` = sims$P[,1,3],
+  `P[2,3]` = sims$P[,2,3],
+  `P_t[1,3]` = sims$P_t[,1,3],
+  `P_t[2,3]` = sims$P_t[,2,3]
+) %>%
+  pivot_longer(everything(), names_to = "Parameter", values_to = "Value")
+
+# Plot posterior densities
+ggplot(plot_data, aes(x = Value, fill = Parameter)) +
+  geom_density(alpha = 0.6) +
+  facet_wrap(~ Parameter, scales = "free") +
+  labs(title = "Posterior Distributions of Transition Probabilities",
+       x = "Probability", y = "Density") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+```
+
+Perfect—let’s bring those survival curves to life! We'll compute survival probabilities starting from each transient state (states 1, 2, and 3) over a grid of time points. To do that, we'll re-run the model for a vector of time values and extract P_t[i,4], which gives the cumulative probability of absorption (i.e. transitioning to the absorbing state by time t). The survival probability is simply 1 - P_t[i,4].
+
+Here’s how to set this up in R:
+
+```{r}
+jags_model_string <- "
+model {
+  for (i in 1:3) {
+    r[i, 1:4] ~ dmulti(P[i, 1:4], n[i])
+  }
+
+  for (i in 1:3) {
+    for (j in 1:4) {
+      is_offdiag[i, j] <- step(j - i)
+      G_temp[i, j] ~ dunif(0, 5)
+      G[i, j] <- ifelse(j == i, -sum(G_temp[i, (i+1):4]),
+                     ifelse(j > i, G_temp[i, j], 0))
+    }
+
+    s[i] <- -G[i, i]
+    e[i] <- exp(-s[i] * t_obs)
+  }
+
+  # Transition matrix at t_obs (needed but not used here)
+  P[1,1] <- e[1]
+  P[1,2] <- G[1,2]*(e[2] - e[1]) / (s[1] - s[2])
+  P[1,3] <- G[1,3]*(e[3] - e[1]) / (s[1] - s[3]) +
+            G[1,2]*G[2,3]*((s[1] - s[2])*e[3] -
+                           (s[1] - s[3])*e[2] +
+                           (s[2] - s[3])*e[1]) /
+            ((s[1] - s[2])*(s[1] - s[3])*(s[2] - s[3]))
+  P[1,4] <- 1 - sum(P[1, 1:3])
+  P[2,1] <- 0
+  P[2,2] <- e[2]
+  P[2,3] <- G[2,3]*(e[3] - e[2]) / (s[2] - s[3])
+  P[2,4] <- 1 - sum(P[2, 1:3])
+  P[3,1] <- 0
+  P[3,2] <- 0
+  P[3,3] <- e[3]
+  P[3,4] <- 1 - sum(P[3, 1:3])
+
+  # Transition probabilities at t_new
+  for (i in 1:3) {
+    e_t[i] <- exp(-s[i] * t_new)
+  }
+
+  P_t[1,1] <- e_t[1]
+  P_t[1,2] <- G[1,2]*(e_t[2] - e_t[1]) / (s[1] - s[2])
+  P_t[1,3] <- G[1,3]*(e_t[3] - e_t[1]) / (s[1] - s[3]) +
+              G[1,2]*G[2,3]*((s[1] - s[2])*e_t[3] -
+                             (s[1] - s[3])*e_t[2] +
+                             (s[2] - s[3])*e_t[1]) /
+              ((s[1] - s[2])*(s[1] - s[3])*(s[2] - s[3]))
+  P_t[1,4] <- 1 - sum(P_t[1, 1:3])
+
+  P_t[2,1] <- 0
+  P_t[2,2] <- e_t[2]
+  P_t[2,3] <- G[2,3]*(e_t[3] - e_t[2]) / (s[2] - s[3])
+  P_t[2,4] <- 1 - sum(P_t[2, 1:3])
+
+  P_t[3,1] <- 0
+  P_t[3,2] <- 0
+  P_t[3,3] <- e_t[3]
+  P_t[3,4] <- 1 - sum(P_t[3, 1:3])
+}
+"
+writeLines(jags_model_string, "markov_model.bug")
+
+```
+
+```{r}
+time_grid <- seq(0.1, 5, by = 0.1)
+surv_curves <- matrix(NA, nrow = length(time_grid), ncol = 3)
+colnames(surv_curves) <- paste0("State ", 1:3)
+
+data_list <- list(
+  r = matrix(c(20, 6, 4, 2, 0, 5, 5, 3, 0, 0, 3, 7), nrow = 3, byrow = TRUE),
+  n = c(32, 13, 10),
+  t_obs = 2,
+  t_new = NA  # We'll overwrite this in each iteration
+)
+
+inits <- function() {
+  list(G_temp = matrix(runif(12, 0.1, 1), nrow = 3, ncol = 4))
+  
+}
+
+inits_list <- list(inits(), inits(), inits())
+
+
+for (i in seq_along(time_grid)) {
+  data_list$t_new <- time_grid[i]
+
+
+ results <- jags(
+  data = data_list,
+  inits = inits_list,
+  parameters.to.save = parameters.to.save,
+  model.file = "markov_model.bug",
+  n.chains = 3,
+  n.iter = 10000,
+  n.burnin = 1000,
+  n.thin = 10
+)
+
+
+  pt_samples <- sim$BUGSoutput$sims.list$P_t
+  surv_curves[i, ] <- apply(pt_samples[, , 4], 2, function(x) 1 - mean(x))
+}
+
+```
+
+
+Survival curves
+
+```{r}
+# Pre-allocate matrix for survival probabilities
+time_grid <- seq(0.1, 5, by = 0.2)
+surv_curves <- matrix(NA, nrow = length(time_grid), ncol = 3)
+colnames(surv_curves) <- paste0("State ", 1:3)
+
+# Static data that doesn't change
+data_static <- list(
+  r = matrix(c(20, 6, 4, 2, 0, 5, 5, 3, 0, 0, 3, 7), nrow = 3, byrow = TRUE),
+  n = c(32, 13, 10),
+  t_obs = 2
+)
+
+for (i in seq_along(time_grid)) {
+  data_now <- data_static
+  data_now$t_new <- time_grid[i]
+
+  sim <- jags(
+    data = data_now,
+    inits = list(inits(), inits(), inits()),
+    parameters.to.save = "P_t",
+    model.file = "markov_model.bug",
+    n.chains = 3,
+    n.iter = 3000,
+    n.burnin = 500,
+    n.thin = 2,
+    quiet = TRUE
+  )
+
+  pt <- sim$BUGSoutput$sims.list$P_t
+  surv_curves[i, ] <- apply(pt[, , 4], 2, function(x) 1 - mean(x))
+}
+
+```
+
+
+```{r}
+library(tibble)
+library(tidyr)
+library(ggplot2)
+
+surv_df <- as_tibble(surv_curves) %>%
+  mutate(Time = time_grid) %>%
+  pivot_longer(-Time, names_to = "State", values_to = "Survival")
+
+ggplot(surv_df, aes(x = Time, y = Survival, color = State)) +
+  geom_line(size = 1.1) +
+  labs(title = "Posterior Mean Survival Curves by Starting State",
+       x = "Time", y = "Survival Probability") +
+  theme_minimal()
+```
+
+
+Nice—let’s visualize those posteriors! To plot the posterior distributions of the transition probabilities from your JAGS model, we’ll use the coda output stored in results$BUGSoutput$sims.list. Here’s how to extract and plot the marginal posterior densities for selected P[i,j] and P_t[i,j] values:
+
+```{r}
+# Extract posterior samples
+sims <- results$BUGSoutput$sims.list
+
+# Choose a few transition probabilities to illustrate
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+
+# Convert to tidy format for plotting
+plot_data <- tibble(
+  `P[1,2]` = sims$P[,1,2],
+  `P[1,3]` = sims$P[,1,3],
+  `P[2,3]` = sims$P[,2,3],
+  `P_t[1,3]` = sims$P_t[,1,3],
+  `P_t[2,3]` = sims$P_t[,2,3]
+) %>%
+  pivot_longer(everything(), names_to = "Parameter", values_to = "Value")
+
+# Plot posterior densities
+ggplot(plot_data, aes(x = Value, fill = Parameter)) +
+  geom_density(alpha = 0.6) +
+  facet_wrap(~ Parameter, scales = "free") +
+  labs(title = "Posterior Distributions of Transition Probabilities",
+       x = "Probability", y = "Density") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+```
+
+
+DIAGNOSTICS
+
+```{r}
+library(coda)
+mcmc_samples <- as.mcmc(results)
+
+traceplot(mcmc_samples[, grep("G\\[", varnames(mcmc_samples))], 
+          col = "steelblue", 
+          main = "Traceplots for G parameters")
+
+traceplot(mcmc_samples[, grep("P_t\\[", varnames(mcmc_samples))], 
+          col = "forestgreen", 
+          main = "Traceplots for P_t transition probabilities")
+
+autocorr.plot(mcmc_samples[, grep("G\\[", varnames(mcmc_samples))], 
+              lag.max = 50, 
+              auto.layout = FALSE)
+
+densplot(mcmc_samples[, grep("G\\[", varnames(mcmc_samples))], 
+         show.obs = FALSE, 
+         col = "darkorange")
+
+gelman.diag(mcmc_samples, multivariate = FALSE)
+
+
+
+```
+

@@ -4,13 +4,24 @@ format: html
 ---
 
 ```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Show the code"
 library(tidyverse)
+library(rjags)
+library(expm)
+library(coda)
 ```
 
 
 
-## Dererministic Model
+## Data
 ```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Show the code"
 s_state <- matrix(
   c(210, 61, 1,
     89, 645, 14,
@@ -22,6 +33,10 @@ s_state <- matrix(
 ```
 
 ```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Show the code"
 estimate_Q <- function(state_counts) {
   n <- nrow(state_counts)
   Q <- matrix(0, n, n)
@@ -50,7 +65,11 @@ Q
 
 ```
 ```{r}
-library(expm)
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Show the code"
+
 
 t <- 1  # time interval
 P_t <- expm(Q * t)
@@ -59,14 +78,12 @@ P_t
 ```
 ## JAGS Model
 
-```{r}
-library(rjags)
-library(expm)
-```
-
-
 
 ```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Show the code"
 model_string <- "
 model {
   # Priors for off-diagonal rates
@@ -89,9 +106,12 @@ model {
 ```
 
 ```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Show the code"
 
-library(rjags)
-library(coda)
+
 
 # Prepare data (no likelihood in JAGS)
 data_list <- list()
@@ -122,6 +142,10 @@ lambda_samples <- as.matrix(samples)[, grep("Q\\[", colnames(samples))]
 # #######################
 
 ```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Show the code"
 samples_df <- as.data.frame(as.mcmc(do.call(rbind, samples)))
 smry <- summary(samples)
 Mean <- smry$statistics[, "Mean"]
@@ -200,6 +224,10 @@ ggplot(df_long %>% filter(parameter %in%
 ```
 
 ```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Show the code"
 t <- 12  # time interval
 P<- expm(Q * t)
 P

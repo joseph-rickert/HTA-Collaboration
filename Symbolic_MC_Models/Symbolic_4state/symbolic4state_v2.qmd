@@ -1,0 +1,257 @@
+---
+title: "asthma4state"
+format: html
+---
+
+This workbook attempts to find a symbolic solution to the  Kolmogorov Forward equation given on page 346 of [Network Analysis for Decision Making](https://www.agropustaka.id/wp-content/uploads/2020/04/agropustaka.id_buku_Network-Meta-Analysis-for-Decision-Making.pdf) by Dias et al. 
+
+THe strategy is to use the `reticulate` R package to access the symbolic engine in the python `caracas` package.
+
+## Setup
+
+* Install the `reticulate` package
+* Install the `caracas` R package
+* Run the command: `caracas::install_sympy()`
+
+If it doesn't work run:  `reticulate::py_config()` to see your python configuration
+
+If for some reason it does not work, try updating conda with this R command: `reticulate::miniconda_update()`
+
+
+
+## 4 state Asthma Model
+
+
+$$ G = 
+	\begin{bmatrix} 
+	-\lambda_{12} & \lambda_{12} & 0 & 0 \\
+	\lambda_{21} & -(\lambda_{21} + \lambda_{23} + \lambda_{24}) & \lambda_{23} & \lambda_{24}\\
+	 0 & \lambda_{32} & -(\lambda_{32} + \lambda_{34}) & \lambda_{34} \\
+	 0 & 0 & 0 & 1\\
+	\end{bmatrix}
+	\quad
+	$$
+
+$$ \frac{dP(u)}{du} = P(u)G$$
+
+
+```{r}
+#| message: FALSE
+#| warning: False
+#| echo: FALSE
+library(caracas)
+#caracas::install_sympy()
+library(tidyverse)
+library(reticulate)
+```
+
+
+
+## Attempt to use `reticulate` to call Python.
+This ran for 45 minutes on my Macbook Air but did not terminate.
+(1.1GHz, quad-core, Intel chip, 16MB memory, macOS Sequoia 15.5)
+
+```{python}
+from sympy import symbols, Matrix, exp
+u, λ12, λ21, λ23, λ24, λ32, λ34 = symbols('u lambda12 lambda21 lambda23 lambda24 lambda32 lambda34')
+G = Matrix([
+    [-λ12,       λ12,             0,        0],
+    [λ21, - (λ21 + λ23 + λ24),  λ23,      λ24],
+    [0,           λ32, - (λ32 + λ34),     λ34],
+    [0,             0,            0,        0]
+])
+Gu = u * G
+expGu = Gu.exp()
+expGu
+
+```
+
+
+### Python Environment check
+```{python}
+# Use a simpler test matrix to make sure the pipeline works
+from sympy import symbols, Matrix
+u, λ = symbols('u lambda')
+G_test = Matrix([[ -λ, λ], [λ, -λ]])
+Gu_test = u * G_test
+Gu_test_exp = Gu_test.exp()
+Gu_test_exp
+
+```
+
+
+### Test feasibility before running
+
+Bing AI advises: If your matrix is larger than 3×3 and filled with symbols, symbolic exponentiation is likely to be intractable.
+
+Try `G.is_diagonalizable()` in SymPy: If it returns True, you can use diagonalization to compute the exponential more efficiently. The following code did not terminate
+
+```{python}
+G.is_diagonalizable()
+```
+
+Use `.eigenvals()` or `.jordan_form()`: If these return quickly, symbolic exponentiation might be feasible via spectral methods.
+
+```{python}
+G.eigenvals(G)
+```
+This result indicates distinct eigenvalues with respective multiplicity 1, 1, 1, 1. These eigenvalues control the rates of convergence to the stationary distribution. The slowest decay rate is governed by the eigenvalue closest to zero (-0.171), which influences the long-term behavior.
+
+This code did not terminate
+```{python}
+G.jordan_form()
+```
+
+```{python}
+G_eigen_vectors = eigen_info = G.eigenvects()
+print(G_eigen_vectors)
+```
+
+
+### Symbolic Eigenvectors in Python (SymPy)
+
+This runs but produces unreadable output
+```{python}
+from sympy import symbols, Matrix
+
+# Define symbols
+λ12, λ21, λ23, λ24, λ32, λ34 = symbols('lambda12 lambda21 lambda23 lambda24 lambda32 lambda34')
+
+# Define G
+G = Matrix([
+    [-λ12, λ12, 0, 0],
+    [λ21, -(λ21 + λ23 + λ24), λ23, λ24],
+    [0, λ32, -(λ32 + λ34), λ34],
+    [0, 0, 0, 0]
+])
+
+# Compute eigenvalues and eigenvectors
+eigen_data = G.eigenvects()
+
+# Display eigenvalues and corresponding eigenvectors
+for val, mult, vects in eigen_data:
+    print(f"Eigenvalue: {val}")
+    for v in vects:
+        print(f"Eigenvector: {v}")
+
+```
+
+## Python Script to Comoute Matrix exponential via diagonalization
+
+```{python}
+from sympy import symbols, Matrix, exp, simplify
+
+# Define symbols
+u = symbols('u')
+λ12, λ21, λ23, λ24, λ32, λ34 = symbols('lambda12 lambda21 lambda23 lambda24 lambda32 lambda34')
+
+# Define generator matrix G
+G = Matrix([
+    [-λ12, λ12, 0, 0],
+    [λ21, -(λ21 + λ23 + λ24), λ23, λ24],
+    [0, λ32, -(λ32 + λ34), λ34],
+    [0, 0, 0, 0]
+])
+
+# Diagonalize G
+P, D = G.diagonalize()
+
+# Compute exp(uG) = P * exp(uD) * P^{-1}
+exp_uD = D.applyfunc(lambda x: exp(u * x))
+expGu = simplify(P * exp_uD * P.inv())
+
+# Display result
+expGu
+
+```
+
+
+
+
+
+## Python Script to symbolically compute Matrix exponential via Jordan Form
+```{python}
+from sympy import symbols, Matrix, exp, simplify
+
+# Define symbols
+u = symbols('u')
+λ12, λ21, λ23, λ24, λ32, λ34 = symbols('lambda12 lambda21 lambda23 lambda24 lambda32 lambda34')
+
+# Define generator matrix G
+G = Matrix([
+    [-λ12, λ12, 0, 0],
+    [λ21, -(λ21 + λ23 + λ24), λ23, λ24],
+    [0, λ32, -(λ32 + λ34), λ34],
+    [0, 0, 0, 0]
+])
+
+# Compute Jordan form and transformation matrix
+J, P = G.jordan_form()
+
+# Compute exp(uJ) by applying exp to each Jordan block
+exp_uJ = (u * J).exp()
+
+# Compute exp(uG) = P * exp(uJ) * P^{-1}
+expGu = simplify(P * exp_uJ * P.inv())
+
+# Display the symbolic matrix exponential
+expGu
+
+```
+
+
+
+### SCompute $𝑃(𝑢)=𝑒^{𝑢𝐺}$ via Eigendecomposition
+
+1. Eigendecomposition of 𝐺
+If 𝐺has a full set of linearly independent eigenvectors, then: $𝐺=𝑃𝐷𝑃^{−1}$ where 𝐷is a diagonal matrix of eigenvalues $\lambda_1, \lambda_2, . . .$ and 𝑃is the matrix whose columns are the corresponding eigenvectors
+
+2. Matrix Exponential
+$𝑒^{𝑢𝐺}=𝑃𝑒^{𝑢𝐷}𝑃^{−1}$ where $𝑒^{𝑢𝐷} = diag(e^{u \lambda_1}, e^{u\lambda_2}, . . . e^{u\lambda_n})$
+
+3. Transition Probability Matrix
+$𝑃(𝑢)=𝑒^{𝑢𝐺}$
+
+
+```{python}
+from sympy import symbols, Matrix, exp, simplify
+
+# Define symbols
+u = symbols('u')
+λ12, λ21, λ23, λ24, λ32, λ34 = symbols('lambda12 lambda21 lambda23 lambda24 lambda32 lambda34')
+
+# Define generator matrix G
+G = Matrix([
+    [-λ12, λ12, 0, 0],
+    [λ21, -(λ21 + λ23 + λ24), λ23, λ24],
+    [0, λ32, -(λ32 + λ34), λ34],
+    [0, 0, 0, 0]
+])
+
+# Get eigenvalues and eigenvectors
+eigen_data = G.eigenvects()
+
+# Build P and D manually
+P_cols = []
+D_vals = []
+
+for val, mult, vects in eigen_data:
+    for v in vects:
+        P_cols.append(v)
+        D_vals.append(val)
+
+P = Matrix.hstack(*P_cols)
+D = Matrix.diag(*D_vals)
+
+# Compute exp(uD)
+exp_uD = D.applyfunc(lambda x: exp(u * x))
+
+# Compute P(u) = P * exp(uD) * P⁻¹
+P_inv = P.inv()
+P_u = simplify(P * exp_uD * P_inv)
+
+# Display symbolic transition matrix
+P_u
+
+```
+

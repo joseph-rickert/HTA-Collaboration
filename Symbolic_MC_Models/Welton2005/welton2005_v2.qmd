@@ -1,0 +1,453 @@
+---
+title: "welton2005_v2"
+format: html
+---
+
+This version:
+
+Loads required packages
+
+Defines the JAGS model
+
+Runs the model using R2jags
+
+Extracts posterior samples
+
+Calculates credible intervals
+
+Simulates the system over time
+
+Visualizes the expected trajectory
+
+
+
+```{r}
+### 1. Load packages
+library(R2jags)
+library(tidyverse)
+library(coda)
+library(abind)
+```
+
+```{r}
+### 2. Define model
+model_code <- textConnection("
+model {
+  for (i in 1:2) {
+    r[i, 1:3] ~ dmulti(P[i, 1:3], n[i])
+  }
+
+  s <- G[1,2] / (G[1,2] + G[1,3] - G[2,3])
+
+  P[1,1] <- exp(-(G[1,2] + G[1,3]) * 2)
+  P[1,2] <- s * exp(-G[2,3] * 2) * (1 - exp(-(G[1,2] + G[1,3] - G[2,3]) * 2))
+  P[1,3] <- 1 - P[1,1] - P[1,2]
+  P[2,1] <- 0
+  P[2,2] <- exp(-G[2,3] * 2)
+  P[2,3] <- 1 - P[2,2]
+
+  for (j in 2:3) {
+    G[1,j] ~ dgamma(0.1, 0.1)
+  }
+  G[2,3] ~ dgamma(0.1, 0.1)
+
+  P3[1,1] <- exp(-(G[1,2] + G[1,3]) * 0.25)
+  P3[1,2] <- s * exp(-G[2,3] * 0.25) * (1 - exp(-(G[1,2] + G[1,3] - G[2,3]) * 0.25))
+  P3[1,3] <- 1 - P3[1,1] - P3[1,2]
+  P3[2,1] <- 0
+  P3[2,2] <- exp(-G[2,3] * 0.25)
+  P3[2,3] <- 1 - P3[2,2]
+}
+")
+
+### 3. Data and initial values
+data_list <- list(
+  r = matrix(c(20, 3, 7, 0, 5, 5), nrow = 2, byrow = TRUE),
+  n = c(30, 10)
+)
+
+inits <- list(list(G = matrix(c(NA, 0.1, 0.1, NA, NA, 0.1), nrow = 2, byrow = TRUE)))
+parameters.to.save = c("P", "P3", "s", "G[1,2]", "G[1,3]", "G[2,3]")
+```
+
+```{r}
+### 4. Fit model
+set.seed(42)
+results <- jags(
+  data = data_list,
+  inits = inits,
+  parameters.to.save = parameters.to.save,
+  model.file = model_code,
+  n.chains = 1,
+  n.iter = 10000,
+  n.burnin = 1000,
+  n.thin = 10
+)
+```
+
+```{r}
+### 5. Extract posterior samples
+mcmc_df <- as.data.frame(do.call(rbind, as.mcmc(results)))
+
+### 6. Credible intervals
+credible_intervals <- mcmc_df %>%
+  pivot_longer(everything(), names_to = "Parameter", values_to = "Value") %>%
+  group_by(Parameter) %>%
+  summarise(
+    lower = quantile(Value, 0.025),
+    median = quantile(Value, 0.5),
+    upper = quantile(Value, 0.975)
+  )
+
+print(credible_intervals)
+```
+
+
+
+
+```{r}
+# Plot transition rates
+mcmc_df %>%
+  select(starts_with("G[")) %>%
+  pivot_longer(everything(), names_to = "Parameter", values_to = "Value") %>%
+  ggplot(aes(x = Value)) +
+  geom_density(fill = "skyblue", alpha = 0.7) +
+  facet_wrap(~ Parameter, scales = "free", ncol = 3) +
+  labs(title = "Posterior Distributions of Transition Rates")
+
+# Plot transition probabilities
+mcmc_df %>%
+  select(matches("^P3?\\[")) %>%
+  pivot_longer(everything(), names_to = "Probability", values_to = "Value") %>%
+  ggplot(aes(x = Value)) +
+  geom_density(fill = "darkorange", alpha = 0.6) +
+  facet_wrap(~ Probability, scales = "free", ncol = 4) +
+  labs(title = "Posterior Distributions of P and P3", x = "Probability", y = "Density")
+```
+
+
+
+
+
+```{r}
+### 7. Simulation functions
+compute_transition_matrix <- function(G, t) {
+  s <- G[1,2] / (G[1,2] + G[1,3] - G[2,3])
+  P <- matrix(0, nrow = 3, ncol = 3)
+  P[1,1] <- exp(-(G[1,2] + G[1,3]) * t)
+  P[1,2] <- s * exp(-G[2,3] * t) * (1 - exp(-(G[1,2] + G[1,3] - G[2,3]) * t))
+  P[1,3] <- 1 - P[1,1] - P[1,2]
+  P[2,1] <- 0
+  P[2,2] <- exp(-G[2,3] * t)
+  P[2,3] <- 1 - P[2,2]
+  P[3,3] <- 1
+  return(P)
+}
+
+simulate_system <- function(G_samples, start_state = c(1, 0, 0), steps = 8, dt = 0.25) {
+  n_states <- length(start_state)
+  simulations <- vector("list", nrow(G_samples))
+  for (i in seq_len(nrow(G_samples))) {
+    G <- matrix(NA, nrow = 2, ncol = 3)
+    G[1,2] <- G_samples[i, "G[1,2]"]
+    G[1,3] <- G_samples[i, "G[1,3]"]
+    G[2,3] <- G_samples[i, "G[2,3]"]
+    dist <- start_state
+    trace <- matrix(NA, nrow = steps + 1, ncol = n_states)
+    trace[1, ] <- dist
+    for (s in 1:steps) {
+      P <- compute_transition_matrix(G, dt)
+      dist <- as.vector(dist %*% P)
+      trace[s + 1, ] <- dist
+    }
+    simulations[[i]] <- trace
+  }
+  return(simulations)
+}
+
+```
+
+```{r}
+### 8. Run simulation and plot
+G_draws <- mcmc_df %>%
+  select(`G[1,2]`, `G[1,3]`, `G[2,3]`) %>%
+  slice_sample(n = 500) %>%
+  as.matrix()
+
+simulation_results <- simulate_system(G_draws, start_state = c(1, 0, 0), steps = 8)
+sim_array <- abind(simulation_results, along = 3)
+mean_trajectory <- apply(sim_array, c(1, 2), mean)
+
+df <- as.data.frame(mean_trajectory)
+colnames(df) <- c("State1", "State2", "State3")
+df$Time <- seq(0, 2, by = 0.25)
+
+df_long <- df %>%
+  pivot_longer(cols = starts_with("State"), names_to = "State", values_to = "Probability")
+
+ggplot(df_long, aes(x = Time, y = Probability, color = State)) +
+  geom_line(linewidth = 1.1) +
+  labs(title = "Expected State Probabilities Over 2 Years",
+       x = "Time (years)", y = "Probability") +
+  theme_minimal()
+```
+
+
+### Survival curve
+Assuming simulation_results is a list of matrices where each matrix represents a trajectory (time × state):
+```{r}
+# Convert to 3D array: [time × state × draw]
+sim_array <- abind(simulation_results, along = 3)
+
+# Sum of probabilities in non-absorbing states (States 1 and 2)
+survival_curve <- apply(sim_array[, 1:2, ], c(1, 3), sum)  # [time × draw]
+```
+
+Compute mean and credible itervals
+
+```{r}
+# Time vector
+time_points <- seq(0, 2, by = 0.25)
+
+# Tidy format
+surv_df <- as.data.frame(t(survival_curve))  # each row = draw, columns = time
+colnames(surv_df) <- paste0("T_", time_points)
+surv_df <- surv_df %>%
+  pivot_longer(everything(), names_to = "Time", values_to = "Survival") %>%
+  mutate(Time = as.numeric(sub("T_", "", Time)))
+
+# Summary stats
+surv_summary <- surv_df %>%
+  group_by(Time) %>%
+  summarise(
+    lower = quantile(Survival, 0.025),
+    median = median(Survival),
+    upper = quantile(Survival, 0.975),
+    .groups = "drop"
+  )
+```
+
+Plot the Survival Curve with Credible Bands
+This plot shows you the expected probability of surviving (i.e. not yet being absorbed into State 3) over time, along with 95% credible bands. It’s a graceful way to visualize resilience, uncertainty, and drift all in one frame.
+
+```{r}
+ggplot(surv_summary, aes(x = Time, y = median)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), fill = "lightblue", alpha = 0.4) +
+  geom_line(color = "steelblue", size = 1.2) +
+  labs(title = "Bayesian Survival Curve (States 1 & 2)",
+       x = "Time (years)", y = "Survival Probability") +
+  theme_minimal()
+```
+
+### stratify by states
+
+We’ll simulate each starting state separately and track survival (States 1 & 2):
+
+```{r}
+# Wrapper to simulate survival from a specific initial state
+simulate_survival_from <- function(G_samples, initial_state_index, steps = 8, dt = 0.25) {
+  n_states <- 3
+  start_state <- rep(0, n_states)
+  start_state[initial_state_index] <- 1
+  simulate_system(G_samples, start_state = start_state, steps = steps, dt = dt)
+}
+```
+
+Step 2: Run Simulations for Each Starting State
+```{r}
+# Simulate from State 1, State 2, and State 3
+sim_state1 <- simulate_survival_from(G_draws, 1)
+sim_state2 <- simulate_survival_from(G_draws, 2)
+sim_state3 <- simulate_survival_from(G_draws, 3)
+```
+
+Extract and Summarize Survival Probabilities
+
+```{r}
+#Function to extract survival curves (States 1 & 2) from simulation list
+summarize_survival <- function(sim_list, label) {
+  arr <- abind(sim_list, along = 3)
+  survival_matrix <- apply(arr[, 1:2, ], c(1, 3), sum)  # [time × draw]
+  df <- as.data.frame(t(survival_matrix))
+  colnames(df) <- paste0("T_", seq(0, 2, by = 0.25))
+  df <- df %>%
+    pivot_longer(everything(), names_to = "Time", values_to = "Survival") %>%
+    mutate(Time = as.numeric(sub("T_", "", Time)),
+           Start = label)
+  return(df)
+}
+
+# Combine all starting state results
+df_surv <- bind_rows(
+  summarize_survival(sim_state1, "Start in State 1"),
+  summarize_survival(sim_state2, "Start in State 2"),
+  summarize_survival(sim_state3, "Start in State 3")
+)
+
+# Summarize by time and starting state
+surv_summary <- df_surv %>%
+  group_by(Start, Time) %>%
+  summarise(
+    lower = quantile(Survival, 0.025),
+    median = median(Survival),
+    upper = quantile(Survival, 0.975),
+    .groups = "drop"
+  )
+```
+
+Plot stratifeid curves
+
+```{r}
+ggplot(surv_summary, aes(x = Time, y = median, fill = Start, color = Start)) +
+  geom_line(size = 1.1) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.3, color = NA) +
+  labs(title = "Survival by Starting State (Probability in States 1 or 2)",
+       x = "Time (years)", y = "Survival Probability") +
+  theme_minimal()
+```
+
+### Make survival time a parameter
+
+```{r}
+# Compute transition matrix at time t
+compute_transition_matrix <- function(G, t) {
+  s <- G[1,2] / (G[1,2] + G[1,3] - G[2,3])
+  P <- matrix(0, nrow = 3, ncol = 3)
+  P[1,1] <- exp(-(G[1,2] + G[1,3]) * t)
+  P[1,2] <- s * exp(-G[2,3] * t) * (1 - exp(-(G[1,2] + G[1,3] - G[2,3]) * t))
+  P[1,3] <- 1 - P[1,1] - P[1,2]
+  P[2,1] <- 0
+  P[2,2] <- exp(-G[2,3] * t)
+  P[2,3] <- 1 - P[2,2]
+  P[3,3] <- 1
+  return(P)
+}
+
+# Simulate forward from a given start state
+simulate_system <- function(G_samples, start_state = c(1, 0, 0), steps = 8, dt = 0.25) {
+  n_states <- length(start_state)
+  simulations <- vector("list", nrow(G_samples))
+  for (i in seq_len(nrow(G_samples))) {
+    G <- matrix(NA, 2, 3)
+    G[1,2] <- G_samples[i, "G[1,2]"]
+    G[1,3] <- G_samples[i, "G[1,3]"]
+    G[2,3] <- G_samples[i, "G[2,3]"]
+    dist <- start_state
+    trace <- matrix(NA, nrow = steps + 1, ncol = n_states)
+    trace[1, ] <- dist
+    for (s in 1:steps) {
+      P <- compute_transition_matrix(G, dt)
+      dist <- as.vector(dist %*% P)
+      trace[s + 1, ] <- dist
+    }
+    simulations[[i]] <- trace
+  }
+  return(simulations)
+}
+
+# Wrapper for stratified simulation
+simulate_survival_from <- function(G_samples, initial_state_index, steps = 8, dt = 0.25) {
+  n_states <- 3
+  start_state <- rep(0, n_states)
+  start_state[initial_state_index] <- 1
+  simulate_system(G_samples, start_state, steps, dt)
+}
+```
+
+```{r}
+steps <- 20  # 0.25 years × 20 = 5 years
+dt <- 0.25
+```
+
+```{r}
+simulate_and_plot_survival <- function(G_samples, steps = 20, dt = 0.25) {
+  time_grid <- seq(0, steps * dt, by = dt)
+
+  simulate_survival_from <- function(initial_state_index) {
+    n_states <- 3
+    start_state <- rep(0, n_states)
+    start_state[initial_state_index] <- 1
+    simulate_system(G_samples, start_state, steps, dt)
+  }
+
+  summarize_survival <- function(sim_list, label) {
+    arr <- abind::abind(sim_list, along = 3)
+    survival_matrix <- apply(arr[, 1:2, ], c(1, 3), sum)
+    df <- as.data.frame(t(survival_matrix))
+    colnames(df) <- paste0("T_", time_grid)
+    df <- df %>%
+      pivot_longer(everything(), names_to = "Time", values_to = "Survival") %>%
+      mutate(Time = as.numeric(sub("T_", "", Time)), Start = label)
+    return(df)
+  }
+
+  # Run simulations
+  results <- list(
+    summarize_survival(simulate_survival_from(1), "Start in State 1"),
+    summarize_survival(simulate_survival_from(2), "Start in State 2"),
+    summarize_survival(simulate_survival_from(3), "Start in State 3")
+  )
+
+  # Combine & summarize
+  df_all <- bind_rows(results)
+
+  surv_summary <- df_all %>%
+    group_by(Start, Time) %>%
+    summarise(
+      lower = quantile(Survival, 0.025),
+      median = median(Survival),
+      upper = quantile(Survival, 0.975),
+      .groups = "drop"
+    )
+
+  # Plot
+  ggplot(surv_summary, aes(x = Time, y = median, color = Start, fill = Start)) +
+    geom_line(size = 1.1) +
+    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.3, color = NA) +
+    labs(title = "Stratified Survival Curve",
+         x = "Time (years)", y = "Probability in States 1 or 2") +
+    theme_minimal()
+}
+```
+
+```{r}
+# Simulate out to 5 years at 0.25-year intervals
+simulate_and_plot_survival(G_draws, steps = 50, dt = 0.25)
+```
+
+
+```{r}
+library(gganimate)
+```
+
+
+
+```{r}
+# Pull in previous simulation array if not already defined
+sim_array <- abind::abind(simulation_results, along = 3)
+mean_traj <- apply(sim_array, c(1,2), mean)
+
+df <- as.data.frame(mean_traj)
+colnames(df) <- c("State1", "State2", "State3")
+
+df$Time <- seq(0, dt * (nrow(df) - 1), by = dt)
+
+df_long <- df %>%
+  pivot_longer(cols = starts_with("State"), names_to = "State", values_to = "Probability")
+```
+
+```{r}
+# Create animated plot
+library(ggplot2)
+
+p <- ggplot(df_long, aes(x = State, y = Probability, fill = State)) +
+  geom_col(show.legend = FALSE) +
+  transition_states(Time, transition_length = 1, state_length = 1) +
+  ease_aes('cubic-in-out') +
+  labs(title = "Markov Chain Animation: Time = {closest_state} years") +
+  ylim(0, 1) +
+  theme_minimal()
+
+animate(p, fps = 5, duration = 10, width = 600, height = 400, renderer = gifski_renderer())
+```
+

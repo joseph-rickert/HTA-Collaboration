@@ -1,0 +1,81 @@
+---
+title: "Welton_4state_asthma"
+format: html
+---
+
+##
+
+
+```{r}
+#| message: FALSE
+#| warning: False
+#| echo: FALSE
+library(caracas)
+caracas::install_sympy()
+library(tidyverse)
+library(reticulate)
+```
+
+
+
+```{r}
+asthma <- matrix(c(310,70,2,0,
+                   96, 1683, 11, 13,
+                   1, 11, 1, 0,
+                   0, 0, 0, 94), nrow=4, byrow=TRUE)
+states <- c("STW", "UTW", "X", "F")
+colnames(asthma) <- rownames(asthma) <- states
+asthma
+```
+
+
+
+
+
+
+```{python}
+from sympy import symbols, Matrix, exp, simplify
+
+# Define symbols
+u = symbols('u')
+λ12, λ21, λ23, λ24, λ32, λ34 = symbols('lambda12 lambda21 lambda23 lambda24 lambda32 lambda34')
+
+# Define generator matrix G
+G = Matrix([
+    [-λ12, λ12, 0, 0],
+    [λ21, -(λ21 + λ23 + λ24), λ23, λ24],
+    [0, λ32, -(λ32 + λ34), λ34],
+    [0, 0, 0, 0]
+])
+
+# Get eigenvalues and eigenvectors
+eigen_data = G.eigenvects()
+
+# Build P and D manually
+P_cols = []
+D_vals = []
+
+for val, mult, vects in eigen_data:
+    for v in vects:
+        P_cols.append(v)
+        D_vals.append(val)
+
+P = Matrix.hstack(*P_cols)
+D = Matrix.diag(*D_vals)
+
+# Compute exp(uD)
+exp_uD = D.applyfunc(lambda x: exp(u * x))
+
+# Compute P(u) = P * exp(uD) * P⁻¹
+P_inv = P.inv()
+P_u = simplify(P * exp_uD * P_inv)
+
+# Display symbolic transition matrix
+P_u
+
+
+
+
+
+```
+

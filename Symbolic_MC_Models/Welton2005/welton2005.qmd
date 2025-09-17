@@ -1,0 +1,290 @@
+---
+title: "Welton2005"
+format: html
+---
+
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| code-summary: "Show the code"
+library(rjags)
+library(R2jags)
+library(tidyverse)
+library(coda)
+```
+
+
+## Original Model
+
+```{r}
+# Load required packages
+library(rjags)
+
+# Create model code
+model_code <- textConnection("
+model {
+  for (i in 1:2) {
+    r[i, 1:3] ~ dmulti(P[i, 1:3], n[i])
+  }
+
+  s <- G[1,2] / (G[1,2] + G[1,3] - G[2,3])
+
+  # Transition probabilities at t = 2 years
+  P[1,1] <- exp(-(G[1,2] + G[1,3]) * 2)
+  P[1,2] <- s * exp(-G[2,3] * 2) * (1 - exp(-(G[1,2] + G[1,3] - G[2,3]) * 2))
+  P[1,3] <- 1 - P[1,1] - P[1,2]
+  P[2,1] <- 0
+  P[2,2] <- exp(-G[2,3] * 2)
+  P[2,3] <- 1 - P[2,2]
+
+  for (j in 2:3) {
+    G[1,j] ~ dgamma(0.1, 0.1)
+  }
+  G[2,3] ~ dgamma(0.1, 0.1)
+
+  # Transition probabilities at t = 0.25 years
+  P3[1,1] <- exp(-(G[1,2] + G[1,3]) * 0.25)
+  P3[1,2] <- s * exp(-G[2,3] * 0.25) * (1 - exp(-(G[1,2] + G[1,3] - G[2,3]) * 0.25))
+  P3[1,3] <- 1 - P3[1,1] - P3[1,2]
+  P3[2,1] <- 0
+  P3[2,2] <- exp(-G[2,3] * 0.25)
+  P3[2,3] <- 1 - P3[2,2]
+}
+")
+
+# Data
+data_list <- list(
+  r = matrix(c(20, 3, 7, 0, 5, 5), nrow = 2, byrow = TRUE),
+  n = c(30, 10)
+)
+
+# Initial values (one chain)
+inits <- list(list(G = matrix(c(NA, 0.1, 0.1, NA, NA, 0.1), nrow = 2, byrow = TRUE)))
+
+# Parameters to monitor
+parameters_to_save <- c("P", "P3", "s", "G")
+
+# Run model
+library(R2jags)
+results <- jags(
+  data = data_list,
+  inits = inits,
+  parameters.to.save = parameters_to_save,
+  model.file = model_code,
+  n.chains = 1,
+  n.iter = 10000,
+  n.burnin = 1000,
+  n.thin = 10
+)
+
+# Check results
+print(results)
+```
+
+
+
+
+
+### Second Model
+
+```{r}
+model_code <- textConnection("
+model {
+  for (i in 1:2) {
+    r[i, 1:3] ~ dmulti(P[i, 1:3], n[i])
+  }
+
+  s <- G[1,2] / (G[1,2] + G[1,3] - G[2,3])
+
+  # Transition probabilities at t = 2
+  P[1,1] <- exp(-(G[1,2] + G[1,3]) * 2)
+  P[1,2] <- s * exp(-G[2,3] * 2) * (1 - exp(-(G[1,2] + G[1,3] - G[2,3]) * 2))
+  P[1,3] <- 1 - P[1,1] - P[1,2]
+  P[2,1] <- 0
+  P[2,2] <- exp(-G[2,3] * 2)
+  P[2,3] <- 1 - P[2,2]
+
+  # Priors
+  for (j in 2:3) {
+    G[1,j] ~ dgamma(0.1, 0.1)
+  }
+  G[2,3] ~ dgamma(0.1, 0.1)
+
+  # Transition probabilities at t = 0.25 (3 months)
+  P3[1,1] <- exp(-(G[1,2] + G[1,3]) * 0.25)
+  P3[1,2] <- s * exp(-G[2,3] * 0.25) * (1 - exp(-(G[1,2] + G[1,3] - G[2,3]) * 0.25))
+  P3[1,3] <- 1 - P3[1,1] - P3[1,2]
+  P3[2,1] <- 0
+  P3[2,2] <- exp(-G[2,3] * 0.25)
+  P3[2,3] <- 1 - P3[2,2]
+}
+")
+```
+
+```{r}
+
+data_list <- list(
+  r = matrix(c(20, 3, 7, 0, 5, 5), nrow = 2, byrow = TRUE),
+  n = c(30, 10)
+)
+
+inits <- list(
+  list(G = matrix(c(NA, 0.1, 0.1, NA, NA, 0.1), nrow = 2, byrow = TRUE))
+)
+
+params <- c("P", "P3", "s", "G")
+
+
+```
+
+
+```{r}
+set.seed(42)  # for reproducibility
+
+results <- jags(
+  data = data_list,
+  inits = inits,
+  parameters.to.save = params,
+  model.file = model_code,
+  n.chains = 1,
+  n.iter = 10000,
+  n.burnin = 1000,
+  n.thin = 10
+)
+```
+
+```{r}
+# Extract MCMC samples
+mcmc_df <- as.data.frame(do.call(rbind, as.mcmc(results)))
+
+credible_intervals <- mcmc_df %>%
+  pivot_longer(everything(), names_to = "Parameter", values_to = "Value") %>%
+  group_by(Parameter) %>%
+  summarise(
+    lower = quantile(Value, 0.025),
+    median = quantile(Value, 0.5),
+    upper = quantile(Value, 0.975)
+  )
+
+print(credible_intervals)
+
+
+# Plot transition rates
+mcmc_df %>%
+  select(starts_with("G[")) %>%
+  pivot_longer(everything(), names_to = "Parameter", values_to = "Value") %>%
+  ggplot(aes(x = Value)) +
+  geom_density(fill = "skyblue", alpha = 0.7) +
+  facet_wrap(~ Parameter, scales = "free", ncol = 3) +
+  labs(title = "Posterior Distributions of Transition Rates")
+
+# Plot transition probabilities
+mcmc_df %>%
+  select(matches("^P3?\\[")) %>%
+  pivot_longer(everything(), names_to = "Probability", values_to = "Value") %>%
+  ggplot(aes(x = Value)) +
+  geom_density(fill = "darkorange", alpha = 0.6) +
+  facet_wrap(~ Probability, scales = "free", ncol = 4) +
+  labs(title = "Posterior Distributions of P and P3", x = "Probability", y = "Density")
+```
+
+
+
+
+
+
+
+
+
+
+### New Sim
+
+```{r}
+# Function to compute a single transition matrix at time t
+compute_transition_matrix <- function(G, t) {
+  s <- G[1,2] / (G[1,2] + G[1,3] - G[2,3])
+  P <- matrix(0, nrow = 3, ncol = 3)
+  
+  # From State 1
+  P[1,1] <- exp(-(G[1,2] + G[1,3]) * t)
+  P[1,2] <- s * exp(-G[2,3] * t) * (1 - exp(-(G[1,2] + G[1,3] - G[2,3]) * t))
+  P[1,3] <- 1 - P[1,1] - P[1,2]
+
+  # From State 2
+  P[2,1] <- 0
+  P[2,2] <- exp(-G[2,3] * t)
+  P[2,3] <- 1 - P[2,2]
+
+  # From State 3 (absorbing)
+  P[3,1] <- 0
+  P[3,2] <- 0
+  P[3,3] <- 1
+
+  return(P)
+}
+
+# Simulate system evolution over time from a given starting state
+simulate_system <- function(G_samples, start_state = c(1, 0, 0), steps = 8, dt = 0.25) {
+  n_states <- length(start_state)
+  simulations <- vector("list", nrow(G_samples))
+
+  for (i in seq_len(nrow(G_samples))) {
+    G <- matrix(NA, nrow = 2, ncol = 3)
+    G[1,2] <- G_samples[i, "G[1,2]"]
+    G[1,3] <- G_samples[i, "G[1,3]"]
+    G[2,3] <- G_samples[i, "G[2,3]"]
+
+    dist <- start_state
+    trace <- matrix(NA, nrow = steps + 1, ncol = n_states)
+    trace[1, ] <- dist
+
+    for (s in 1:steps) {
+      P <- compute_transition_matrix(G, dt)
+      dist <- as.vector(dist %*% P)
+      trace[s + 1, ] <- dist
+    }
+    simulations[[i]] <- trace
+  }
+
+  return(simulations)
+}
+```
+
+```{r}
+set.seed(42)
+library(dplyr)
+library(tidyr)
+library(abind)
+library(ggplot2)
+
+# Sample 500 posterior draws
+G_draws_mat <- as.matrix(mcmc_df %>%
+  select(`G[1,2]`, `G[1,3]`, `G[2,3]`) %>%
+  slice_sample(n = 500))
+
+# Run simulation
+simulation_results <- simulate_system(G_draws_mat, start_state = c(1, 0, 0), steps = 8)
+
+# Stack simulations into 3D array: [time x state x draw]
+sim_array <- abind::abind(simulation_results, along = 3)
+
+# Mean trajectory over all draws
+mean_trajectory <- apply(sim_array, c(1, 2), mean)
+
+# Prepare tidy data frame for plotting
+df <- as.data.frame(mean_trajectory)
+colnames(df) <- c("State1", "State2", "State3")
+df$Time <- seq(0, 2, by = 0.25)
+
+df_long <- df %>%
+  pivot_longer(cols = starts_with("State"), names_to = "State", values_to = "Probability")
+
+# Plot
+ggplot(df_long, aes(x = Time, y = Probability, color = State)) +
+  geom_line(linewidth = 1.1) +
+  labs(title = "Expected State Probabilities Over 2 Years",
+       x = "Time (years)", y = "Probability") +
+  theme_minimal()
+```
+
