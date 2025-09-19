@@ -180,7 +180,8 @@ plot(em_f)
 ```{r}
 #| code-fold: TRUE
 #| code-summary: "P matrix"
-#| t <- 1
+#| 
+t <- 1
 P_f <- expm(Q_f * t)
 round(P_f,2)
 cat("time = ", t, "\n")
