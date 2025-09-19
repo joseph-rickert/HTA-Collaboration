@@ -1,0 +1,286 @@
+---
+title: "5-State-EM"
+format: html
+---
+
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "R Packages"
+library('dplyr')
+library('ggplot2')
+library('stringr')
+library('tidyverse')
+library('matrixcalc')
+library('LaplacesDemon') # for Dirichlet distribution
+library('diagram')
+library('expm') # for matrix exponentiation
+library('ctmcd') # for continuous-time Markov chain models
+```
+
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Helper Functions"
+TP5 <- function(Q, Time){
+  if (dim(Q)[1]*dim(Q)[2] != 25){stop("Matrix 'Q' must b e 5 x 5.")}
+TP <- matrix(0, nrow=length(Time), ncol=25)
+for (t in 1:length(Time)){
+  P <- expm(Q * Time[t])
+  TP[t,1] <- P[1,1]
+  TP[t,2] <- P[1,2]
+  TP[t,3] <- P[1,3]
+  TP[t,4] <- P[1,4]
+  TP[t,5] <- P[1,5]
+  
+  TP[t,6] <- P[2,1]
+  TP[t,7] <- P[2,2]
+  TP[t,8] <- P[2,3]
+  TP[t,9] <- P[2,4]
+  TP[t,10] <- P[2,5]
+  
+  TP[t,11] <- P[3,1]
+  TP[t,12] <- P[3,2]
+  TP[t,13] <- P[3,3]
+  TP[t,14] <- P[3,4]
+  TP[t,15] <- P[3,5]
+  
+  TP[t,16] <- P[4,1]
+  TP[t,17] <- P[2,2]
+  TP[t,18] <- P[4,3]
+  TP[t,19] <- P[4,4]
+  TP[t,20] <- P[4,5]
+  
+  TP[t,21] <- P[4,1]
+  TP[t,22] <- P[2,2]
+  TP[t,23] <- P[4,3]
+  TP[t,24] <- P[4,4]
+  TP[t,25] <- P[4,5]
+  
+}
+
+return(list(TP,Time))
+
+}
+```
+
+
+
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Data Code"
+states <- c(
+  "STW" = "sucessfully treated week",
+  "UTW" = "unsucessfully treated week",
+  "Hex" = "hospital-managed exacerbation",
+  "Pex" = "primary care-managed exacerbation",
+  "TF" = "treatment failure"
+)
+
+treatments <- c("Seretide", "Fluticasone")
+
+s_state <- matrix(
+  c(
+    210, 60, 0, 1, 1,
+    88, 641, 0, 4, 13,
+    0, 0, 0, 0, 0,
+    1, 0, 0, 0, 1,
+    0, 0, 0, 0, 81
+  ),
+  nrow = 5, byrow = TRUE,
+  dimnames = list(names(states), names(states))
+)
+
+f_state <- matrix(
+  c(
+    66, 32, 0, 0, 2,
+    42, 752, 0, 5, 20,
+    0, 0, 0, 0, 0,
+    0, 4, 0, 1, 0,
+    0, 0, 0, 0, 156
+  ),
+  nrow = 5, byrow = TRUE,
+  dimnames = list(names(states), names(states))
+)
+
+# Matrix to seed EM algorithm
+s0 <- matrix(1, 5, 5)
+diag(s0) <- 0
+diag(s0) <- -rowSums(s0)
+s0[5,] <- 0
+```
+
+## Generating Matrix (Q) and Transition Probability Matrix (P)
+
+
+
+:::: {.columns}
+
+::: {.column width="45%"}
+
+## Seretide  Matirces
+
+```{r}
+#| code-fold: TRUE
+#| code-summary: "Q Matrix"
+em_s <- gm(s_state, te=1, method="EM", gmguess=s0)
+
+ #t <- 1  # time interval
+ Q_s  <-em_s$par
+# round(Q_s,2)
+# cat("time = ", t, "\n")
+plot(em_s)
+```
+
+
+
+```{r}
+#| code-fold: TRUE
+#| code-summary: "P matrix"
+t <- 1
+P_s <- expm(Q_s * t)
+round(P_s,2)
+cat("time = ", t, "\n")
+```
+
+
+
+
+
+:::
+
+::: {.column width="10%"}
+
+:::
+
+::: {.column width="45%"}
+
+## Fluticasone Matrices
+
+```{r}
+#| code-fold: TRUE
+#| code-summary: "Q Matrix"
+em_f <- gm(f_state, te=1, method="EM", gmguess=s0)
+
+#t <- 1  # time interval
+Q_f  <-em_f$par
+# round(Q_f,2)
+# cat("time = ", t, "\n")
+plot(em_f)
+```
+
+
+
+
+
+```{r}
+#| code-fold: TRUE
+#| code-summary: "P matrix"
+#| t <- 1
+P_f <- expm(Q_f * t)
+round(P_f,2)
+cat("time = ", t, "\n")
+```
+
+
+
+:::
+
+
+::::
+
+## Transition Probabilities over Time
+
+### Seretide Probabilities over time
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Show the Plot Code"
+
+Time <- seq(1/12,3,by = 1/12)
+TP_Mat_s <- TP5(Q = Q_s, Time = Time)
+probs_s <- as.data.frame(TP_Mat_s[1])
+Weeks <- 1: length(Time)
+TP_s <- cbind(Weeks, TP_Mat_s[2], probs_s)
+names(TP_s) <- c("Weeks", "Time",
+               "P[1,1]", "P[1,2]", "P[1,3]", "P[1,4]", "P[1,5]",
+               "P[2,1]", "P[2,2]", "P[2,3]", "P[2,4]", "P[2,5]",
+               "P[3,1]", "P[3,2]", "P[3,3]", "P[3,4]", "P[3,5]",
+               "P[4,1]", "P[4,2]", "P[4,3]", "P[4,4]", "P[4,5]",
+               "P[5,1]", "P[5,2]", "P[5,3]", "P[5,4]", "P[5,5]")
+
+
+#head(TP)
+
+
+df_long_s <- TP_s %>%
+  pivot_longer(
+    cols = starts_with("P["), # Selects all columns starting with "P["
+    names_to = "TP",    # New column for the original column names
+    values_to = "Value"        # New column for the values
+  )
+
+Probs_s <- df_long_s |> ggplot(aes(x = Weeks, y = Value, color = TP)) +
+  geom_line() +
+  facet_wrap(~ TP, scales = "free_y") +
+  scale_x_continuous(`breaks` = seq(0, length(Weeks), by = 12)) +
+  labs(title = "State Transition Probabilities over Time",
+       x = "Weeks", y = "Transition Probability")
+Probs_s
+```
+
+
+
+
+
+
+
+
+
+
+### Fluticasone Probabilities over time
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "Show the Plot Code"
+
+
+Time <- seq(1/12,3,by = 1/12)
+TP_Mat_f <- TP5(Q = Q_f, Time = Time)
+probs_f <- as.data.frame(TP_Mat_f[1])
+Weeks <- 1: length(Time)
+TP_f <- cbind(Weeks, TP_Mat_f[2], probs_f)
+
+names(TP_f) <- c("Weeks", "Time",
+               "P[1,1]", "P[1,2]", "P[1,3]", "P[1,4]", "P[1,5]",
+               "P[2,1]", "P[2,2]", "P[2,3]", "P[2,4]", "P[2,5]",
+               "P[3,1]", "P[3,2]", "P[3,3]", "P[3,4]", "P[3,5]",
+               "P[4,1]", "P[4,2]", "P[4,3]", "P[4,4]", "P[4,5]",
+               "P[5,1]", "P[5,2]", "P[5,3]", "P[5,4]", "P[5,5]")
+
+
+#head(TP)
+
+
+df_long_f <- TP_f %>%
+  pivot_longer(
+    cols = starts_with("P["), # Selects all columns starting with "P["
+    names_to = "TP",    # New column for the original column names
+    values_to = "Value"        # New column for the values
+  )
+
+Probs_f <- df_long_f |> ggplot(aes(x = Weeks, y = Value, color = TP)) +
+  geom_line() +
+  facet_wrap(~ TP, scales = "free_y") +
+  scale_x_continuous(`breaks` = seq(0, length(Weeks), by = 12)) +
+  labs(title = "State Transition Probabilities over Time",
+       x = "Weeks", y = "Transition Probability")
+Probs_f
+```
+
