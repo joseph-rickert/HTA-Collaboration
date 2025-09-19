@@ -278,6 +278,20 @@ round(f_TP, 2)
 
 ::::
 
+### The Fundamental Matrix
+For an absorbing Markov Chain, each entry $n_{ij}$ of the fundamental matrix, $N$, gives the expected number of times the process is in state $s_j$ given that it starts in state $s-i$.  For our example, this corresponds to the number of weeks that a patient is expected to spend in each of the transient states before reaching the absorbing state, *TF*. 
+
+The first step in getting to $N$ is to partition the transition matrix into sub-matrices of $Q$ of transient state transition probabilities, and  $R$, absorbing state transition probabilities as illustrated in the figure below. If there are $q$ transitive states and $r$ absorbing state, $Q$ is a $q \times q$ matrix, $R$ is a $q \times r$ matrix, $0$ is a $r \times q$ matrix, and $I$ is a $r \times r$ identity matrix. The figure is reproduced from Professor Nickolay Atanasov's *Chapter 11* notes on Markov chains [1] which presents lucid account of the theory presented here.
+
+ 
+![](N.png)
+
+
+Calculating $N = (I - Q)^{-1}$ involves computing the inverse of the matrix $I - Q$ which is easy enough to do in `R`. Remember each entry $n_ij$ of N gives the expected number of times that an absorbing process is expected to be in the transient state $s_j$ before absorption, given that it starts in state $s_i$. So, given that patients start in health state `STW`, the expected number of weeks that patients are expected to spend in the various states before treatment failure are given by the first rows of $N_s$ and $N_f$ respectively. 
+
+
+
+
 ### Extract the Fundamental Matrix
 
 ```{r}
@@ -389,7 +403,7 @@ From here, it is trivial to compute the probability that patients will not be in
 ```{r}
 #| code-fold: true
 #| code-summary: "Show the code"
-N <- 156 # weeks
+N <- 99 # weeks
 s_surv_dat <- vector("numeric", length = N)
 f_surv_dat <- vector("numeric", length = N)
 
@@ -434,14 +448,14 @@ The curves clearly suggest that Seretide would be the preferred treatment.
 
 This section of code computes a matrix that provides the expected time the Markov chain will spend in each state up to some time n. Each row of the matrix assumes the process starts in the state designated by the row name. The entry for each column of that row is the expected time spent in that state up to time n. Matrices are computed for both Seretide and Fluticasone.
 
-Here we choose n = 26 weeks.
+
 
 Note that in a healthcare cost-effectiveness model, these times could be used to compute the financial and quality of life costs for patients who survive to n weeks.
 
 ```{r}
 #| code-fold: true
 #| code-summary: "Show the code"
-n <- 26
+n <- 13
 
 s_state_times <- time_in_state2(tpm = s_TP, n = n)
 f_state_times <- time_in_state2(tpm = f_TP, n = n)
@@ -454,9 +468,11 @@ f_state_times <- time_in_state2(tpm = f_TP, n = n)
 
 ```{r}
 #| code-fold: true
-#| code-summary: "Seretide: State times at n = 26"
+#| code-summary: "Seretide: time in states at n weeks"
 # Seretide
+cat("at n = ", n, "\n")
 round(s_state_times, 2)
+
 ```
 
 
@@ -471,9 +487,11 @@ round(s_state_times, 2)
 
 ```{r}
 #| code-fold: true
-#| code-summary: "Fluticasone: State times at n = 26"
+#| code-summary: "Fluticasone: State times at n weeks"
 # Fluticasone
+cat("at n = ", n, "\n")
 round(f_state_times, 2)
+
 ```
 
 :::
