@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>5-State-EM</title>
+<title>Estimating the Generator Matrix for a 5 State Continuous Time Markov Chain via the EM Algorithm</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -68,6 +68,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="5-state-EM_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
 <link href="5-state-EM_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
 
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
 
 </head>
 
@@ -79,7 +81,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">5-State-EM</h1>
+<h1 class="title">Estimating the Generator Matrix for a 5 State Continuous Time Markov Chain via the EM Algorithm</h1>
 </div>
 
 
@@ -94,6 +96,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 </header>
 
+<p>This post complements the Bayesian approach developed in the previous post <a href="https://rworks.dev/posts/simple-bayesian-model/">A Simple Bayesian Multi-state Survival Model for a Clinical Trial</a> by presenting a Likelihood based method for estimating the generator matrix for a 5-state Markov chain from incomplete data. The method uses an EM algorithm based on the work of <a href="https://academic.oup.com/jrsssb/article-abstract/67/3/395/7109469?redirectedFrom=fulltext">Bladt and Sørensen</a> and implemented in Marius Pfeuffer’s <a href="https://cran.r-project.org/package=ctmcd">ctmcd</a> R package to reconstruct Likelihood function via the integral equations for conditional expectation.</p>
+<section id="the-data" class="level2">
+<h2 class="anchored" data-anchor-id="the-data">The Data</h2>
+<p>Before describing the data used in both in this post and the above mentioned post, I’ll load the R packages used along with a helper function that will make it esier to follow the code.</p>
 <div class="cell">
 <details>
 <summary>R Packages</summary>
@@ -153,6 +159,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
+<p>The data originates from a four arm randomized trial comparing treatments for asthma management, including Seretide and Fluticasone, conducted by Kavuru et al.&nbsp;[3]. I report the data as presented in the text by Welton et al.&nbsp;[5] and the paper by Briggs et al.&nbsp;[2]. For each treatment, data comprise the number of patients observed in each of five health states at the end of each week for a 12-week follow-up period. The states are defined as follows: <code>STW</code>= successfully treated week, <code>UTW</code>= unsuccessfully treated week, <code>Hex</code>= hospital-managed exacerbation ,<code>Pex</code>= primary care-managed exacerbation, and <code>TF</code>= treatment failure. Although observations were apparently made each on a weekly basis, we only have the final observation after the twelth week to work with.</p>
 <div class="cell">
 <details>
 <summary>Data Code</summary>
@@ -197,8 +204,63 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a>s0[<span class="dv">5</span>,] <span class="ot">&lt;-</span> <span class="dv">0</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
+<div class="columns">
+<div class="column" style="width:45%;">
+<div class="cell">
+<details>
+<summary>Seretide Transitions</summary>
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>s_state</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>    STW UTW Hex Pex TF
+STW 210  60   0   1  1
+UTW  88 641   0   4 13
+Hex   0   0   0   0  0
+Pex   1   0   0   0  1
+TF    0   0   0   0 81</code></pre>
+</div>
+</div>
+</div><div class="column" style="width:10%;">
+
+</div><div class="column" style="width:45%;">
+<div class="cell">
+<details>
+<summary>Flucticasone Transitions</summary>
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>f_state</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>    STW UTW Hex Pex  TF
+STW  66  32   0   0   2
+UTW  42 752   0   5  20
+Hex   0   0   0   0   0
+Pex   0   4   0   1   0
+TF    0   0   0   0 156</code></pre>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="some-background-on-continuous-time-markov-chains" class="level2">
+<h2 class="anchored" data-anchor-id="some-background-on-continuous-time-markov-chains">Some Background on Continuous Time Markov Chains</h2>
+<p>As in the previous post, the progress of patients pasing through various states of health as they undergo for asthma is modeled by the following 5-state Markov chain. In the present analysis, I fit the model to a Continuous Time Markov Chain (CTMC) so a little background on continuous time Markov chains is in order. A Continuous-Time Markov Chain (CTMC) is a stochastic process <span class="math inline">\(X(t), t \ge 0\)</span> over a finite or countable state space, <span class="math inline">\(S\)</span>, such that the process satisfies the Markov property: the future state depends only on the current state, not on the past history. <span class="math display">\[P(X(t + s) =j | X(s) = i, history) = P(X(t + s) =j | X(s) = i)\]</span> Hence, just like a discrete time Markov chain, a CTMC is <em>memoryless</em>. However, unlike a discrete time Markov chain where the behavior of the process is determined by a matrix of transition probabilities, the dynamics of a CTMC are determined by its generator matrix <span class="math inline">\(Q\)</span> which has the following following properties:</p>
+<ul>
+<li><p>For <span class="math inline">\({i \neq j}\)</span>, the off-diagonal entries <span class="math inline">\(q_{ij} \geq 0\)</span> represent the instantaneous transition rate from state <span class="math inline">\(i\)</span> to state <span class="math inline">\(j\)</span>.</p></li>
+<li><p>The diagonal entries are defined such that each row sums to zero: <span class="math inline">\(q_{ii} = -\sum_{j \neq i} q_{ij}\)</span></p></li>
+<li><p>The time-dependent probability matrix for a CTMC may be derived from either the Kolmogorov forward equation: <span class="math inline">\(\frac{d}{dt} P(t) = P(t) Q\)</span> or the Kolmogorov backward equation is: <span class="math inline">\(\frac{d}{dt} P(t) = Q P(t)\)</span></p></li>
+<li><p>The memoryless property dictates that the amount of time the process stays in a state <span class="math inline">\(i\)</span> before transitioning to another state <span class="math inline">\(j \ne i\)</span> is governed by an exponential distribution with rate: <span class="math inline">\(q_{i}=\sum _{j\ne i}q_{ij}\)</span>. Hence sojourn time in state <span class="math inline">\(i\)</span> is given by the exponential distribution: <span class="math inline">\(P(T_{i}&gt;t)=e^{-q_{i}t}\)</span> with mean sojourn time: <span class="math display">\[E[T_{i}]=\frac{1}{q_{i}}=\frac{1}{\sum_{j\ne i}q_{ij}}\]</span></p></li>
+</ul>
+</section>
+<section id="the-likelihood-solution" class="level2">
+<h2 class="anchored" data-anchor-id="the-likelihood-solution">The Likelihood Solution</h2>
+<p>If complete continuous time data were available it would be straightforward to compute the Likelihood function for the <span class="math inline">\(Q\)</span> matrix.</p>
+<p><span class="math display">\[L(Q) = \prod_{i=1}^{I} \prod_{\substack{j=1 \\ j \ne i}}^{I} q_{ij}^{N_{ij}(T)} \exp\left( -q_{ij} R_i(T) \right)\]</span></p>
+<p>where <span class="math inline">\(N_{ij}(T)\)</span> denotes the number of transitions from <span class="math inline">\(i\)</span> to <span class="math inline">\(j\)</span> within time <span class="math inline">\(T\)</span> and <span class="math inline">\(R_i(T)\)</span> gives the cumulative sojourn times in state <span class="math inline">\(i\)</span> before the process jumps to another state. In this case, a single off-diagonal element of <span class="math inline">\(Q\)</span> would look like:</p>
+<p><span class="math display">\[\hat{q}_{ij}^{\mathrm{ML}} = \frac{N_{ij}(T)}{R_i(T)}\]</span></p>
+<p>However, we don’s have complete data. The two data matrices represent data observed only at times 0 and <span class="math inline">\(T\)</span>. Nevertheless, we can estimate <span class="math inline">\(N_{ij}(T)\)</span>, <span class="math inline">\(R_i(T)\)</span>, and <span class="math inline">\(Q(T)\)</span> via the wizardry of Bladt and M. Sørensen who laid out ttwo computation to solve two frightenly complicated conditional interal equations via the EM algorithm. (See the <a href="https://cran.r-project.org/web/packages/ctmcd/vignettes/RJ-2017-038.pdf">ctmcd package vignette</a> for a first look at the equations.)</p>
+</section>
 <section id="generating-matrix-q-and-transition-probability-matrix-p" class="level2">
 <h2 class="anchored" data-anchor-id="generating-matrix-q-and-transition-probability-matrix-p">Generating Matrix (Q) and Transition Probability Matrix (P)</h2>
+<p>This section calculates the Q matrix and some basic properties for the CTMC models of the Seretide and Flucticasone treatments using the EM algorithm described above. Note that the argument to the <code>gm()</code> function is set to 1 because the tdata were collected at 1 week intervals. However, values computed for the <span class="math inline">\(Q\)</span> matrix and transition probability matrix refer to week 12, the tim at which the data matrices were compiled. Later we will compute the values for <span class="math inline">\(Q\)</span> and <span class="math inline">\(P\)</span> at times 1 week, 2 weeks etc. by dividing the time interval by 12.</p>
 </section>
 <div class="columns">
 <div class="column" style="width:45%;">
@@ -207,24 +269,23 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="cell">
 <details>
 <summary>Q Matrix</summary>
-<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>em_s <span class="ot">&lt;-</span> <span class="fu">gm</span>(s_state, <span class="at">te=</span><span class="dv">1</span>, <span class="at">method=</span><span class="st">"EM"</span>, <span class="at">gmguess=</span>s0)</span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a> <span class="co">#t &lt;- 1  # time interval</span></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a> Q_s  <span class="ot">&lt;-</span>em_s<span class="sc">$</span>par</span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="co"># round(Q_s,2)</span></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="co"># cat("time = ", t, "\n")</span></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(em_s)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>em_s <span class="ot">&lt;-</span> <span class="fu">gm</span>(s_state, <span class="at">te=</span><span class="dv">1</span>, <span class="at">method=</span><span class="st">"EM"</span>, <span class="at">gmguess=</span>s0)</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a> <span class="co">#t &lt;- 1  # time interval</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a> Q_s  <span class="ot">&lt;-</span>em_s<span class="sc">$</span>par</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(em_s)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
-<p><img src="5-state-EM_files/figure-html/unnamed-chunk-4-1.png" class="img-fluid" width="672"></p>
+<p><img src="5-state-EM_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 <div class="cell">
 <details>
 <summary>P matrix</summary>
-<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>t <span class="ot">&lt;-</span> <span class="dv">1</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>P_s <span class="ot">&lt;-</span> <span class="fu">expm</span>(Q_s <span class="sc">*</span> t)</span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="fu">round</span>(P_s,<span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>t <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>P_s <span class="ot">&lt;-</span> <span class="fu">expm</span>(Q_s <span class="sc">*</span> t)</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="fu">round</span>(P_s,<span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>     STW  UTW Hex  Pex   TF
@@ -233,13 +294,6 @@ UTW 0.12 0.86   0 0.01 0.02
 Hex 0.28 0.69   0 0.00 0.02
 Pex 0.43 0.11   0 0.00 0.46
 TF  0.00 0.00   0 0.00 1.00</code></pre>
-</div>
-<details>
-<summary>P matrix</summary>
-<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"time = "</span>, t, <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</details>
-<div class="cell-output cell-output-stdout">
-<pre><code>time =  1 </code></pre>
 </div>
 </div>
 </section>
@@ -251,24 +305,23 @@ TF  0.00 0.00   0 0.00 1.00</code></pre>
 <div class="cell">
 <details>
 <summary>Q Matrix</summary>
-<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>em_f <span class="ot">&lt;-</span> <span class="fu">gm</span>(f_state, <span class="at">te=</span><span class="dv">1</span>, <span class="at">method=</span><span class="st">"EM"</span>, <span class="at">gmguess=</span>s0)</span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="co">#t &lt;- 1  # time interval</span></span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>Q_f  <span class="ot">&lt;-</span>em_f<span class="sc">$</span>par</span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="co"># round(Q_f,2)</span></span>
-<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="co"># cat("time = ", t, "\n")</span></span>
-<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(em_f)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>em_f <span class="ot">&lt;-</span> <span class="fu">gm</span>(f_state, <span class="at">te=</span><span class="dv">1</span>, <span class="at">method=</span><span class="st">"EM"</span>, <span class="at">gmguess=</span>s0)</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="co">#t &lt;- 1  # time interval</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>Q_f  <span class="ot">&lt;-</span>em_f<span class="sc">$</span>par</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(em_f)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
-<p><img src="5-state-EM_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid" width="672"></p>
+<p><img src="5-state-EM_files/figure-html/unnamed-chunk-8-1.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 <div class="cell">
 <details>
 <summary>P matrix</summary>
-<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>t <span class="ot">&lt;-</span> <span class="dv">1</span></span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>P_f <span class="ot">&lt;-</span> <span class="fu">expm</span>(Q_f <span class="sc">*</span> t)</span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="fu">round</span>(P_f,<span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>t <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>P_f <span class="ot">&lt;-</span> <span class="fu">expm</span>(Q_f <span class="sc">*</span> t)</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="fu">round</span>(P_f,<span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>     STW  UTW Hex  Pex   TF
@@ -277,13 +330,6 @@ UTW 0.05 0.92   0 0.01 0.02
 Hex 0.08 0.88   0 0.01 0.03
 Pex 0.05 0.92   0 0.01 0.02
 TF  0.00 0.00   0 0.00 1.00</code></pre>
-</div>
-<details>
-<summary>P matrix</summary>
-<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"time = "</span>, t, <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</details>
-<div class="cell-output cell-output-stdout">
-<pre><code>time =  1 </code></pre>
 </div>
 </div>
 </section>
@@ -328,7 +374,7 @@ TF  0.00 0.00   0 0.00 1.00</code></pre>
 <span id="cb14-30"><a href="#cb14-30" aria-hidden="true" tabindex="-1"></a>Probs_s</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
-<p><img src="5-state-EM_files/figure-html/unnamed-chunk-8-1.png" class="img-fluid" width="672"></p>
+<p><img src="5-state-EM_files/figure-html/unnamed-chunk-10-1.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </section>
@@ -370,10 +416,111 @@ TF  0.00 0.00   0 0.00 1.00</code></pre>
 <span id="cb15-31"><a href="#cb15-31" aria-hidden="true" tabindex="-1"></a>Probs_f</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
-<p><img src="5-state-EM_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid" width="672"></p>
+<p><img src="5-state-EM_files/figure-html/unnamed-chunk-11-1.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 </section>
+</section>
+<section id="fundamental-matrix-for-absorbing-continuous-time-markov-chains" class="level2">
+<h2 class="anchored" data-anchor-id="fundamental-matrix-for-absorbing-continuous-time-markov-chains">Fundamental Matrix for Absorbing Continuous Time Markov Chains</h2>
+<p>Let V be the sub matrix of the generator matrix, Q, comprising the transient states. Then the matrix <span class="math inline">\(F = -V^{-1}\)</span> is called the fundamental matrix. For all transient states <span class="math inline">\(i\)</span> and <span class="math inline">\(j\)</span>, <span class="math inline">\(F_{ij}\)</span> is the time that a process started in state <span class="math inline">\(i\)</span> spends in state <span class="math inline">\(j\)</span>. Then for each state i, <span class="math inline">\(T_a = \sum_{j}F_{ij}\)</span> is the mean time to absorption.</p>
+<div class="columns">
+<div class="column" style="width:45%;">
+<div class="cell">
+<details>
+<summary>Fundamental Matrix</summary>
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>V_s <span class="ot">&lt;-</span> Q_s[<span class="dv">1</span><span class="sc">:</span><span class="dv">4</span>,<span class="dv">1</span><span class="sc">:</span><span class="dv">4</span>]</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>F_s <span class="ot">&lt;-</span> <span class="sc">-</span><span class="dv">1</span><span class="sc">*</span> <span class="fu">solve</span>(V_s)</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="fu">round</span>(F_s,<span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>      STW   UTW  Hex  Pex
+STW 26.55 42.57 0.00 0.31
+UTW 23.25 43.13 0.00 0.31
+Hex 23.82 42.53 0.01 0.31
+Pex 14.44 23.16 0.00 0.31</code></pre>
+</div>
+</div>
+<div class="cell">
+<details>
+<summary>Mean Sojourn Times</summary>
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>Es <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">/</span> (<span class="fu">rowSums</span>(Q_s) <span class="sc">-</span> <span class="fu">diag</span>(Q_s))</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="fu">round</span>(Es,<span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code> STW  UTW  Hex  Pex   TF 
+3.54 5.68 0.00 0.14  Inf </code></pre>
+</div>
+</div>
+<div class="cell">
+<details>
+<summary>Time to Absorbtion</summary>
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>Ta_s <span class="ot">&lt;-</span> <span class="fu">rowSums</span>(F_s)</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="fu">round</span>(Ta_s,<span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>  STW   UTW   Hex   Pex 
+69.43 66.69 66.66 37.91 </code></pre>
+</div>
+</div>
+</div><div class="column" style="width:10%;">
+
+</div><div class="column" style="width:45%;">
+<div class="cell">
+<details>
+<summary>Fundamental Matrix</summary>
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>V_f <span class="ot">&lt;-</span> Q_f[<span class="dv">1</span><span class="sc">:</span><span class="dv">4</span>,<span class="dv">1</span><span class="sc">:</span><span class="dv">4</span>]</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>F_f <span class="ot">&lt;-</span> <span class="sc">-</span><span class="dv">1</span><span class="sc">*</span> <span class="fu">solve</span>(V_f)</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a><span class="fu">round</span>(F_f,<span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>     STW   UTW  Hex  Pex
+STW 7.58 34.29 0.00 0.26
+UTW 5.50 35.89 0.00 0.27
+Hex 5.56 35.49 0.01 0.27
+Pex 5.50 35.89 0.00 0.34</code></pre>
+</div>
+</div>
+<div class="cell">
+<details>
+<summary>Mean Sojourn Times</summary>
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>Ef <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">/</span> (<span class="fu">rowSums</span>(Q_f) <span class="sc">-</span> <span class="fu">diag</span>(Q_f))</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a><span class="fu">round</span>(Ef,<span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code> STW  UTW  Hex  Pex   TF 
+2.32 4.64 0.00 0.07  Inf </code></pre>
+</div>
+</div>
+<div class="cell">
+<details>
+<summary>Time to Absorption</summary>
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>Ta_f <span class="ot">&lt;-</span> <span class="fu">rowSums</span>(F_f)</span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a><span class="fu">round</span>(Ta_f,<span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>  STW   UTW   Hex   Pex 
+42.13 41.67 41.33 41.73 </code></pre>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="refernces" class="level2">
+<h2 class="anchored" data-anchor-id="refernces">Refernces</h2>
+<p>[1] Marius Pfeuffer: <a href="https://cran.r-project.org/web/packages/ctmcd/vignettes/RJ-2017-038.pdf">ctmcd: An R Package for Estimating the Parameters of a Continuous-Time Markov Chain from Discrete-Time Data</a>, The R Journal Vol. 9/2, December 2017</p>
+<p>[2] M. Bladt and M. Sørensen. <a href="https://doi.org/10.1111/j.1467-%209868.2005.00508.x">Statistical inference for discretely observed Markov jump processes</a> Journal of the Royal Statistical (2005).</p>
+<p>[3] Briggs AH, Ades AE, Price MJ. Probabilistic Sensitivity Analysis for Decision Trees with Multiple Branches: Use of the Dirichlet Distribution in a Bayesian Framework. Medical Decision Making, 2003</p>
+<p>[4] Kavuru M, Melamed J, Gross G, Laforce C, House K, Prillaman B, Baitinger L, Woodring A, and Shah T, (2000) Salmeterol and fluticasone propionate combined in a new powder inhalation device for the treatment of asthma: a randomized, double-blind, placebo-controlled trial</p>
+<p>[5] Welton NJ, Sutton AJ, Cooper NJ, Abrams KR, and Ades AE (2010) Evidence Synthesis for Decision Making in Healthcare. Cambridge University Press.</p>
+<p>#3 Conditional Equations</p>
+<p><span class="math display">\[E(R_i(T) \mid Q, s(0), s(T)) = \frac{n_{i,0}s(T)\,\mathbf{u}_{s(0)}^T
+\left( \int_0^T e^{Qt} \,\mathbf{u}_i \mathbf{u}_i^T\, e^{Q(T - t)} \,dt \right)
+\mathbf{u}_{s(T)}}{\mathbf{u}_{s(0)}^T\, e^{QT}\, \mathbf{u}_{s(T)}}\]</span></p>
+<p><span class="math display">\[E(N_{ij}(T) \mid Q, s(0), s(T)) =
+\frac{n_{i,0}s(T)\,\eta_{ij}\,\mathbf{u}_{s(0)}^T
+\left( \int_0^T e^{Qt} \,\mathbf{u}_i \mathbf{u}_i^T\, e^{Q(T - t)} \,dt \right)
+\mathbf{u}_{s(T)}}{\mathbf{u}_{s(0)}^T\, e^{QT}\, \mathbf{u}_{s(T)}}\]</span></p>
 </section>
 
 </main>

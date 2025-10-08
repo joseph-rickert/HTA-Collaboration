@@ -1,8 +1,13 @@
 ---
-title: "5-State-EM"
+title: "Estimating the Generator Matrix for a 5 State Continuous Time Markov Chain via the EM Algorithm"
 format: html
 ---
 
+This post complements the Bayesian approach developed in the previous post  [A Simple Bayesian Multi-state Survival Model for a Clinical Trial](https://rworks.dev/posts/simple-bayesian-model/) by presenting a Likelihood  based method for estimating the generator matrix for a 5-state Markov chain from incomplete data. The method uses an EM algorithm based on the work of [Bladt and Sørensen](https://academic.oup.com/jrsssb/article-abstract/67/3/395/7109469?redirectedFrom=fulltext) and implemented in Marius Pfeuffer's [ctmcd](https://cran.r-project.org/package=ctmcd) R package to reconstruct Likelihood function via the integral equations for conditional expectation. 
+
+## The Data
+
+Before describing the data used in both in this post and the above mentioned post, I'll load the R packages used along with a helper function that will make it esier to follow the code.
 ```{r}
 #| message: FALSE
 #| warning: FALSE
@@ -25,8 +30,9 @@ library('ctmcd') # for continuous-time Markov chain models
 #| code-fold: TRUE
 #| code-summary: "Helper Functions"
 TP5 <- function(Q, Time){
-  if (dim(Q)[1]*dim(Q)[2] != 25){stop("Matrix 'Q' must b e 5 x 5.")}
-TP <- matrix(0, nrow=length(Time), ncol=25)
+  # leave off the last row of Q which is the absorbing state
+  if (dim(Q)[1]*dim(Q)[2] != 25){stop("Matrix 'Q' must be 5 x 5.")}
+TP <- matrix(0, nrow=length(Time), ncol=20)
 for (t in 1:length(Time)){
   P <- expm(Q * Time[t])
   TP[t,1] <- P[1,1]
@@ -53,18 +59,16 @@ for (t in 1:length(Time)){
   TP[t,19] <- P[4,4]
   TP[t,20] <- P[4,5]
   
-  TP[t,21] <- P[4,1]
-  TP[t,22] <- P[2,2]
-  TP[t,23] <- P[4,3]
-  TP[t,24] <- P[4,4]
-  TP[t,25] <- P[4,5]
-  
 }
 
 return(list(TP,Time))
 
 }
 ```
+
+
+
+The data originates from a four arm randomized trial comparing treatments for asthma management, including Seretide and Fluticasone, conducted by Kavuru et al. [3]. I report the data as presented in the text by Welton et al. [5] and the paper by Briggs et al. [2]. For each treatment, data comprise the number of patients observed in each of five health states at the end of each week for a 12-week follow-up period. The states are defined as follows: `STW`= successfully treated week, `UTW`= unsuccessfully treated week, `Hex`= hospital-managed exacerbation ,`Pex`= primary care-managed exacerbation, and `TF`= treatment failure. Although observations were apparently made each on a weekly basis, we only have the final observation after the twelth week to work with.
 
 
 
@@ -114,7 +118,86 @@ diag(s0) <- -rowSums(s0)
 s0[5,] <- 0
 ```
 
+
+:::: {.columns}
+
+::: {.column width="45%"}
+
+```{r}
+#| code-fold: TRUE
+#| code-summary: "Seretide Transitions"
+s_state
+```
+
+
+:::
+
+::: {.column width="10%"}
+
+:::
+
+::: {.column width="45%"}
+
+```{r}
+#| code-fold: TRUE
+#| code-summary: "Flucticasone Transitions"
+f_state
+```
+
+
+:::
+
+
+::::
+
+## Survival
+
+
+
+
+
+
+
+
+
+## Some Background on Continuous Time Markov Chains
+
+As in the previous post, the progress of patients pasing through various states of health as they undergo for asthma is modeled by the following 5-state Markov chain. In the present analysis, I fit the model to a Continuous Time Markov Chain (CTMC) so a little background on continuous time Markov chains is in order. A Continuous-Time Markov Chain (CTMC) is a stochastic process $X(t), t \ge 0$ over a finite or countable state space, $S$, such that the process satisfies the Markov property: the future state depends only on the current state, not on the past history. 
+$$P(X(t + s) =j | X(s) = i, history) = P(X(t + s) =j | X(s) = i)$$
+Hence, just like a discrete time Markov chain, a CTMC is *memoryless*. However, unlike a discrete time Markov chain where the behavior of the process is determined by a matrix of transition probabilities, the dynamics of a CTMC are determined by its generator matrix $Q$ which has the following following properties:
+
+* For ${i \neq j}$, the off-diagonal entries $q_{ij} \geq 0$ represent the instantaneous transition rate from state $i$ to state $j$.
+
+* The diagonal entries are defined such that each row sums to zero: $q_{ii} = -\sum_{j \neq i} q_{ij}$
+
+* The time-dependent probability matrix for a CTMC may be derived from either the Kolmogorov forward equation: $\frac{d}{dt} P(t) = P(t) Q$ or the Kolmogorov backward equation is: $\frac{d}{dt} P(t) = Q P(t)$
+
+* The memoryless property dictates that the amount of time the process stays in a state $i$ before transitioning to another state $j \ne i$ is governed by an exponential distribution with rate: $q_{i}=\sum _{j\ne i}q_{ij}$. Hence sojourn time in state $i$ is given by the exponential distribution: $P(T_{i}>t)=e^{-q_{i}t}$ with mean sojourn time: 
+$$E[T_{i}]=\frac{1}{q_{i}}=\frac{1}{\sum_{j\ne i}q_{ij}}$$
+
+
+## The Likelihood Solution
+
+If complete continuous time data were available it would be straightforward to compute the Likelihood function for the $Q$ matrix.
+
+
+
+$$L(Q) = \prod_{i=1}^{I} \prod_{\substack{j=1 \\ j \ne i}}^{I} q_{ij}^{N_{ij}(T)} \exp\left( -q_{ij} R_i(T) \right)$$
+
+where $N_{ij}(T)$ denotes the number of transitions from $i$ to $j$ within time $T$ and $R_i(T)$ gives the cumulative sojourn times in state $i$ before the process jumps to another state. In this case, a single off-diagonal element of $Q$ would look like:
+
+
+$$\hat{q}_{ij}^{\mathrm{ML}} = \frac{N_{ij}(T)}{R_i(T)}$$
+
+However, we don's have complete data. The two data matrices represent data observed only at times 0 and $T$. Nevertheless, we can estimate $N_{ij}(T)$, $R_i(T)$, and $Q(T)$ via the wizardry of Bladt and M. Sørensen who laid out ttwo computation to solve two frightenly complicated conditional interal equations via the EM algorithm. (See the [ctmcd package vignette](https://cran.r-project.org/web/packages/ctmcd/vignettes/RJ-2017-038.pdf) for a first look at the equations.)
+
+
+
+
 ## Generating Matrix (Q) and Transition Probability Matrix (P)
+
+This section calculates the Q matrix and some basic properties for the CTMC models of the Seretide and Flucticasone treatments using the EM algorithm described above. Note that the argument to the `gm()` function is set to 1 because the tdata were collected at 1 week intervals. However, values computed for the $Q$ matrix and transition probability matrix refer to week 12, the tim at which the data matrices were compiled. Later we will compute the values for $Q$ and $P$ at times 1 week, 2 weeks etc. by dividing the time interval by 12.
+
 
 
 
@@ -131,10 +214,12 @@ em_s <- gm(s_state, te=1, method="EM", gmguess=s0)
 
  #t <- 1  # time interval
  Q_s  <-em_s$par
-# round(Q_s,2)
-# cat("time = ", t, "\n")
-plot(em_s)
+
+plot(em_s,col = c("white", "white"), main="Seretide EM estimate for Q")
 ```
+
+
+
 
 
 
@@ -144,11 +229,7 @@ plot(em_s)
 t <- 1
 P_s <- expm(Q_s * t)
 round(P_s,2)
-cat("time = ", t, "\n")
 ```
-
-
-
 
 
 :::
@@ -168,12 +249,9 @@ em_f <- gm(f_state, te=1, method="EM", gmguess=s0)
 
 #t <- 1  # time interval
 Q_f  <-em_f$par
-# round(Q_f,2)
-# cat("time = ", t, "\n")
-plot(em_f)
+
+plot(em_f,col = c("white", "white"), main="Flucticasone EM estimate for Q")
 ```
-
-
 
 
 
@@ -184,7 +262,7 @@ plot(em_f)
 t <- 1
 P_f <- expm(Q_f * t)
 round(P_f,2)
-cat("time = ", t, "\n")
+
 ```
 
 
@@ -203,7 +281,7 @@ cat("time = ", t, "\n")
 #| code-fold: TRUE
 #| code-summary: "Show the Plot Code"
 
-Time <- seq(1/12,3,by = 1/12)
+Time <- seq(0,3,by = 1/12)
 TP_Mat_s <- TP5(Q = Q_s, Time = Time)
 probs_s <- as.data.frame(TP_Mat_s[1])
 Weeks <- 1: length(Time)
@@ -212,9 +290,7 @@ names(TP_s) <- c("Weeks", "Time",
                "P[1,1]", "P[1,2]", "P[1,3]", "P[1,4]", "P[1,5]",
                "P[2,1]", "P[2,2]", "P[2,3]", "P[2,4]", "P[2,5]",
                "P[3,1]", "P[3,2]", "P[3,3]", "P[3,4]", "P[3,5]",
-               "P[4,1]", "P[4,2]", "P[4,3]", "P[4,4]", "P[4,5]",
-               "P[5,1]", "P[5,2]", "P[5,3]", "P[5,4]", "P[5,5]")
-
+               "P[4,1]", "P[4,2]", "P[4,3]", "P[4,4]", "P[4,5]")
 
 #head(TP)
 
@@ -235,12 +311,22 @@ Probs_s <- df_long_s |> ggplot(aes(x = Weeks, y = Value, color = TP)) +
 Probs_s
 ```
 
+```{r}
+df_long_s1 <- TP_s %>%
+  pivot_longer(
+    cols = starts_with("P[1"), # Selects all columns starting with "P["
+    names_to = "TP",    # New column for the original column names
+    values_to = "Value"        # New column for the values
+  )
 
-
-
-
-
-
+Probs_s1 <- df_long_s1 |> ggplot(aes(x = Weeks, y = Value, color = TP)) +
+  geom_line() +
+  facet_wrap(~ TP, scales = "free_y") +
+  scale_x_continuous(`breaks` = seq(0, length(Weeks), by = 12)) +
+  labs(title = "STW Transition Probabilities over Time",
+       x = "Weeks", y = "Transition Probability")
+Probs_s1
+```
 
 
 
@@ -252,7 +338,7 @@ Probs_s
 #| code-summary: "Show the Plot Code"
 
 
-Time <- seq(1/12,3,by = 1/12)
+Time <- seq(0,3,by = 1/12)
 TP_Mat_f <- TP5(Q = Q_f, Time = Time)
 probs_f <- as.data.frame(TP_Mat_f[1])
 Weeks <- 1: length(Time)
@@ -262,8 +348,7 @@ names(TP_f) <- c("Weeks", "Time",
                "P[1,1]", "P[1,2]", "P[1,3]", "P[1,4]", "P[1,5]",
                "P[2,1]", "P[2,2]", "P[2,3]", "P[2,4]", "P[2,5]",
                "P[3,1]", "P[3,2]", "P[3,3]", "P[3,4]", "P[3,5]",
-               "P[4,1]", "P[4,2]", "P[4,3]", "P[4,4]", "P[4,5]",
-               "P[5,1]", "P[5,2]", "P[5,3]", "P[5,4]", "P[5,5]")
+               "P[4,1]", "P[4,2]", "P[4,3]", "P[4,4]", "P[4,5]")
 
 
 #head(TP)
@@ -285,3 +370,194 @@ Probs_f <- df_long_f |> ggplot(aes(x = Weeks, y = Value, color = TP)) +
 Probs_f
 ```
 
+```{r}
+
+df_long_f1 <- TP_f %>%
+  pivot_longer(
+    cols = starts_with("P[1"), # Selects all columns starting with "P["
+    names_to = "TP",    # New column for the original column names
+    values_to = "Value"        # New column for the values
+  )
+
+Probs_f1 <- df_long_f1 |> ggplot(aes(x = Weeks, y = Value, color = TP)) +
+  geom_line() +
+   facet_wrap(~ TP, scales = "free_y") +
+  scale_x_continuous(`breaks` = seq(0, length(Weeks), by = 12)) +
+  labs(title = "STW Transition Probabilities over Time",
+       x = "Weeks", y = "Transition Probability")
+Probs_f1
+```
+
+
+
+
+## Fundamental Matrix for Absorbing Continuous Time Markov Chains
+
+Let V be the sub matrix of the generator matrix, Q, comprising the transient states. Then the matrix $F = -V^{-1}$ is called the fundamental matrix. For all transient states $i$ and $j$, $F_{ij}$ is the time that a process started in state $i$ spends in state $j$. Then for each state i, $T_a = \sum_{j}F_{ij}$ is the mean time to absorption.
+
+
+:::: {.columns}
+
+::: {.column width="45%"}
+
+
+```{r}
+#| code-fold: TRUE
+#| code-summary: "Fundamental Matrix"
+V_s <- Q_s[1:4,1:4]
+F_s <- -1* solve(V_s)
+round(F_s,2)
+```
+
+
+```{r}
+#| code-fold: TRUE
+#| code-summary: "Mean Sojourn Times"
+
+Es <- 1 / (rowSums(Q_s) - diag(Q_s))
+Es <- 12* Es # convert to weeks
+round(Es,2)
+```
+
+
+
+```{r}
+#| code-fold: TRUE
+#| code-summary: "Time to Absorption"
+Ta_s <- rowSums(F_s)
+
+round(Ta_s,2)
+```
+
+:::
+
+::: {.column width="10%"}
+
+:::
+
+::: {.column width="45%"}
+
+
+
+```{r}
+#| code-fold: TRUE
+#| code-summary: "Fundamental Matrix"
+V_f <- Q_f[1:4,1:4]
+F_f <- -1* solve(V_f)
+round(F_f,2)
+```
+
+
+```{r}
+#| code-fold: TRUE
+#| code-summary: "Mean Sojourn Times"
+
+Ef <- 1 / (rowSums(Q_f) - diag(Q_f))
+Ef <- 12* Ef # convert to weeks
+round(Ef,2)
+```
+
+
+
+```{r}
+#| code-fold: TRUE
+#| code-summary: "Time to Absorption"
+Ta_f <- rowSums(F_f)
+round(Ta_f,2)
+```
+:::
+
+
+::::
+
+
+## Survival
+
+```{r}
+# Generator matrix for Seretide: Q_s
+
+# Generator matrix for Flucticasone: Q_f
+
+# Initial state: all patients start in Health
+p0 <- c(1, 0, 0, 0, 0)
+
+# Time points
+time_points <- seq(0,160,by = 1/12)
+
+# Survival probabilities for each cohort
+survival_s <- sapply(time_points, function(t) {
+  P_t <- expm(Q_s * t)
+  p_t <- p0 %*% P_t
+  return(p_t[1] + p_t[2] + p_t[3] + p_t[4])  # Still in Health or Disease
+})
+
+survival_f <- sapply(time_points, function(t) {
+  P_t <- expm(Q_f * t)
+  p_t <- p0 %*% P_t
+  return(p_t[1] + p_t[2] + p_t[3] + p_t[4])  # Still in Health or Disease
+})
+
+# Combine into one data frame
+df <- data.frame(
+  time = rep(time_points, 2),
+  survival = c(survival_s, survival_f),
+  cohort = rep(c("Seretide", "Flucticasone"), each = length(time_points))
+)
+
+# Plot survival curves
+ggplot(df, aes(x = time, y = survival, color = cohort)) +
+  geom_line(size = 1.2) +
+  labs(title = "Survival Curves for Two Treatment Cohorts",
+       x = "Weeks",
+       y = "Survival Probability",
+       color = "Cohort")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Refernces
+
+
+[1] Marius Pfeuffer: [ctmcd: An R Package for Estimating the Parameters of a Continuous-Time Markov Chain from Discrete-Time Data](https://cran.r-project.org/web/packages/ctmcd/vignettes/RJ-2017-038.pdf), The R Journal Vol. 9/2, December 2017
+
+[2] M. Bladt and M. Sørensen. [Statistical inference for discretely observed Markov jump processes](https://doi.org/10.1111/j.1467-
+9868.2005.00508.x) Journal of the Royal Statistical (2005). 
+
+[3] Briggs AH, Ades AE, Price MJ. Probabilistic Sensitivity Analysis for Decision Trees with Multiple Branches: Use of the Dirichlet Distribution in a Bayesian Framework. Medical Decision Making, 2003
+
+[4] Yasunari Inamura, (2006) Estimating Continuous Time Transition Matrices From Discretely Observed Data, Bank of
+Japan Working Paper Series, 2006. 
+
+[5] Kavuru M, Melamed J, Gross G, Laforce C, House K, Prillaman B, Baitinger L, Woodring A, and Shah T, (2000) Salmeterol and fluticasone propionate combined in a new powder inhalation device for the treatment of asthma: a randomized, double-blind, placebo-controlled trial
+
+
+[6] Welton NJ, Sutton AJ, Cooper NJ, Abrams KR, and Ades AE (2010) Evidence Synthesis for Decision Making in Healthcare. Cambridge University Press.
+
+
+#3 Conditional Equations
+
+$$E(R_i(T) \mid Q, s(0), s(T)) = \frac{n_{i,0}s(T)\,\mathbf{u}_{s(0)}^T 
+\left( \int_0^T e^{Qt} \,\mathbf{u}_i \mathbf{u}_i^T\, e^{Q(T - t)} \,dt \right) 
+\mathbf{u}_{s(T)}}{\mathbf{u}_{s(0)}^T\, e^{QT}\, \mathbf{u}_{s(T)}}$$
+
+
+
+
+
+
+
+$$E(N_{ij}(T) \mid Q, s(0), s(T)) = 
+\frac{n_{i,0}s(T)\,\eta_{ij}\,\mathbf{u}_{s(0)}^T 
+\left( \int_0^T e^{Qt} \,\mathbf{u}_i \mathbf{u}_i^T\, e^{Q(T - t)} \,dt \right) 
+\mathbf{u}_{s(T)}}{\mathbf{u}_{s(0)}^T\, e^{QT}\, \mathbf{u}_{s(T)}}$$
