@@ -1,0 +1,361 @@
+---
+title: "ROC2"
+format: html
+---
+
+
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "R Packages"
+library(tidyverse)
+library(tidymodels)
+library(MASS)
+library(fda)
+library(threejs)
+
+```
+
+```{r}
+# Load the biopsy dataset
+data(biopsy, package = "MASS")
+
+names(biopsy) <- c("ID",
+"clump thickness",
+"uniformity of cell size",
+"uniformity of cell shape",
+"marginal adhesion",
+"single epithelial cell size",
+"bare nuclei",
+"bland chromatin",
+"normal nucleoli",
+"mitoses",
+"class")
+
+
+# Clean column names and convert the outcome to a factor
+biopsy <- biopsy %>%
+  janitor::clean_names() %>%
+  mutate(outcome = factor(class, levels = c("benign", "malignant")))
+```
+
+
+### Fit the Predictive Model
+
+```{r}
+# Split the data (a best practice, though not strictly required for this example)
+biopsy_split <- initial_split(biopsy, prop = 0.8)
+biopsy_train <- training(biopsy_split)
+biopsy_test <- testing(biopsy_split)
+
+# Define and fit a logistic regression model
+logistic_fit <- logistic_reg() %>%
+  set_engine("glm") %>%
+  fit(outcome ~ clump_thickness + uniformity_of_cell_size + uniformity_of_cell_shape +
+        marginal_adhesion + bare_nuclei, data = biopsy_train)
+
+# Generate predictions on the test set
+biopsy_predictions <- predict(logistic_fit, new_data = biopsy_test, type = "prob") %>%
+  bind_cols(biopsy_test) %>% drop_na
+```
+
+### Manually Create the ROC Curve
+```{r}
+# Create a sequence of thresholds from 0 to 1
+thresholds <- seq(0, 1, by = 0.01)
+
+# Calculate TPR and FPR for each threshold
+manual_roc_data <- map_dfr(thresholds, ~ {
+  # For a given threshold, classify predictions as "malignant" or "benign"
+  predictions_at_threshold <- biopsy_predictions %>%
+    mutate(
+      .pred_class = factor(
+        if_else(.pred_malignant >= .x, "malignant", "benign"),
+        levels = c("benign", "malignant")
+      )
+    )
+
+  # Create a confusion matrix
+  conf_mat <- conf_mat(predictions_at_threshold, truth = outcome, estimate = .pred_class)
+
+  # Extract true positives (TP), false positives (FP), etc.
+  tp <- conf_mat$table["malignant", "malignant"]
+  fp <- conf_mat$table["benign", "malignant"]
+  tn <- conf_mat$table["benign", "benign"]
+  fn <- conf_mat$table["malignant", "benign"]
+
+  # Calculate TPR and FPR
+  tpr <- tp / (tp + fn)
+  fpr <- fp / (fp + tn)
+
+  # Return a tibble row for this threshold
+  tibble(
+    .threshold = .x,
+    sensitivity = tpr, # TPR is equivalent to sensitivity
+    `1-specificity` = fpr # FPR is equivalent to 1-specificity
+  )
+})
+```
+
+## Plot Manual ROC Curve
+```{r}
+
+# Plot the Manual ROC Curve
+
+
+ggplot(manual_roc_data, aes(x = `1-specificity`, y = sensitivity)) +
+  geom_line(size = 1) +
+  geom_abline(linetype = "dashed") +
+  scale_x_continuous(limits = c(0,0.2)) +
+  labs(
+    title = "Manual ROC Curve",
+    x = "False Positive Rate (1 - Specificity)",
+    y = "True Positive Rate (Sensitivity)"
+  ) +
+  coord_equal()
+
+```
+
+
+## Prepare the Data
+
+```{r}
+biopsy_roc_df <- manual_roc_data |> drop_na()
+names(biopsy_roc_df) <- c("threshold", "sensitivity", "one_minus_specificity")
+
+threshold <- biopsy_roc_df$threshold
+sensitivity <- biopsy_roc_df$sensitivity
+one_minus_specificity <- biopsy_roc_df$one_minus_specificity
+
+```
+
+### Define a B-spline basis
+
+```{r}
+# Choose number of basis functions (adjust for smoothness)
+nbasis <- 5
+basis <- create.bspline.basis(rangeval = range(threshold), nbasis = nbasis)
+
+```
+
+
+### Fit FDA Objects
+
+```{r}
+# Sensitivity
+sens_fd <- smooth.basis(threshold, sensitivity, basis)$fd
+
+# 1 - Specificity
+spec_fd <- smooth.basis(threshold, one_minus_specificity, basis)$fd
+
+```
+
+### Evaluate and Visualize
+
+```{r}
+# Evaluate at fine grid
+grid <- seq(min(threshold), max(threshold), length.out = 100)
+sens_vals <- eval.fd(grid, sens_fd)
+spec_vals <- eval.fd(grid, spec_fd)
+
+# Plot
+plot(grid, sens_vals, type = "l", col = "blue", ylim = c(0,1), ylab = "Value", xlab = "Threshold")
+lines(grid, spec_vals, col = "red")
+legend("bottomright", legend = c("Sensitivity", "1 - Specificity"), col = c("blue", "red"), lty = 1)
+
+```
+### Plot the FDA ROC curve
+
+We now have a differentiable parameterization 
+$\gamma(t)=(1-specificity(t), sensitivity(𝑡))$
+ suitable for computing arc length, curvature, or tangent vectors.
+
+```{r}
+# Plot ROC curve: sensitivity vs. 1-specificity
+plot(spec_vals, sens_vals, type = "l", col = "blue", lwd = 2,
+     xlab = "1 - Specificity", ylab = "Sensitivity",
+     main = "Smoothed ROC Curve (FDA)")
+grid()
+```
+
+### Diagnostics
+```{r}
+## Check for NA in grid
+anyNA(grid)  # Should return FALSE
+
+#if true rebuild grid explicitly
+#grid <- seq(min(threshold, na.rm = TRUE), max(threshold, na.rm = TRUE), length.out = 100)
+
+```
+
+Sometimes smooth.basis() returns an fd object with internal NA values if the input data is sparse or constant (e.g., all zeros for 1-specificity). You can check:
+
+```{r}
+summary(spec_fd)
+summary(sens_fd)
+
+```
+If spec_fd is flat (e.g., all coefficients zero), try increasing nbasis or using a regularization parameter:
+
+```{r}
+lambda <- 1e-4
+fdPar_obj <- fdPar(basis, Lfdobj = int2Lfd(2), lambda = lambda)
+spec_fd <- smooth.basis(threshold_clean, one_minus_spec_clean, fdPar_obj)$fd
+
+```
+
+
+
+
+
+
+### Estimating curvature
+```{r}
+# Assume you already have:
+# sens_fd: functional data object for sensitivity
+# spec_fd: functional data object for 1 - specificity
+
+# Define evaluation grid
+grid <- seq(min(threshold, na.rm = TRUE), max(threshold, na.rm = TRUE), length.out = 100)
+
+# Define derivative operators
+D1 <- int2Lfd(1)  # First derivative
+D2 <- int2Lfd(2)  # Second derivative
+
+# Evaluate derivatives
+x1 <- eval.fd(grid, spec_fd, D1)   # x'(t)
+x2 <- eval.fd(grid, spec_fd, D2)   # x''(t)
+y1 <- eval.fd(grid, sens_fd, D1)   # y'(t)
+y2 <- eval.fd(grid, sens_fd, D2)   # y''(t)
+
+# Curvature formula
+curvature <- (x1 * y2 - y1 * x2) / ((x1^2 + y1^2)^(3/2))
+
+# Plot curvature vs. threshold
+plot(grid, curvature, type = "l", col = "darkgreen", lwd = 2,
+     xlab = "Threshold", ylab = "Curvature",
+     main = "Curvature of ROC Curve")
+grid()
+
+```
+
+## Combined ROC and Curvature Plot
+
+To plot both the ROC curve and its curvature on the same figure, we’ll use a dual-axis approach in R. This allows you to visualize sensitivity vs. 1-specificity on one axis, and curvature vs. threshold on the other — all aligned by threshold.
+
+```{r}
+# Evaluate ROC components
+grid <- seq(min(threshold, na.rm = TRUE), max(threshold, na.rm = TRUE), length.out = 100)
+sens_vals <- eval.fd(grid, sens_fd)
+spec_vals <- eval.fd(grid, spec_fd)
+
+# Derivatives for curvature
+D1 <- int2Lfd(1)
+D2 <- int2Lfd(2)
+x1 <- eval.fd(grid, spec_fd, D1)
+x2 <- eval.fd(grid, spec_fd, D2)
+y1 <- eval.fd(grid, sens_fd, D1)
+y2 <- eval.fd(grid, sens_fd, D2)
+curvature <- (x1 * y2 - y1 * x2) / ((x1^2 + y1^2)^(3/2))
+
+# Set up plot window
+par(mar = c(5, 4, 4, 4) + 0.1)  # Extra space for right axis
+
+# Plot ROC curve
+plot(spec_vals, sens_vals, type = "l", col = "blue", lwd = 2,
+     xlab = "1 - Specificity", ylab = "Sensitivity",
+     main = "ROC Curve with Curvature Overlay")
+
+# Add curvature on right axis
+par(new = TRUE)
+plot(grid, curvature, type = "l", col = "darkgreen", lwd = 2, axes = FALSE,
+     xlab = "", ylab = "")
+axis(side = 4, col = "darkgreen", col.axis = "darkgreen")
+mtext("Curvature", side = 4, line = 3, col = "darkgreen")
+
+```
+
+
+
+
+```{r}
+# Define curvature threshold for "flat"
+epsilon <- 1e-4
+
+# Classify curvature
+curv_type <- rep("flat", length(curvature))
+curv_type[curvature > epsilon] <- "positive"
+curv_type[curvature < -epsilon] <- "negative"
+
+# Plot ROC curve with segmented colors
+plot(spec_vals, sens_vals, type = "n",
+     xlab = "1 - Specificity", ylab = "Sensitivity",
+     main = "ROC Curve Segmented by Curvature Type")
+
+# Segment and plot each type
+for (i in 2:length(grid)) {
+  seg_color <- switch(curv_type[i],
+                      "positive" = "forestgreen",
+                      "negative" = "firebrick",
+                      "flat"     = "gray50")
+  lines(spec_vals[(i-1):i], sens_vals[(i-1):i], col = seg_color, lwd = 2)
+}
+
+# Add legend
+legend("bottomright", legend = c("Convex", "Concave", "Flat"),
+       col = c("forestgreen", "firebrick", "gray50"), lty = 1, lwd = 2)
+
+```
+
+## 3D plot of Curvature Surface
+
+
+```{r}
+grid <- seq(min(threshold, na.rm = TRUE), max(threshold, na.rm = TRUE), length.out = 400)
+
+# Evaluate ROC components
+x_vals <- eval.fd(grid, spec_fd)         # 1 - specificity
+y_vals <- eval.fd(grid, sens_fd)         # sensitivity
+
+# Derivatives for curvature
+D1 <- int2Lfd(1)
+D2 <- int2Lfd(2)
+x1 <- eval.fd(grid, spec_fd, D1)
+x2 <- eval.fd(grid, spec_fd, D2)
+y1 <- eval.fd(grid, sens_fd, D1)
+y2 <- eval.fd(grid, sens_fd, D2)
+
+# Curvature
+z_vals <- (x1 * y2 - y1 * x2) / ((x1^2 + y1^2)^(3/2))
+
+# Combine into a 3-column matrix
+roc_matrix <- cbind(x_vals, y_vals, z_vals)
+
+# Normalize curvature for color gradient
+curv_scaled <- (z_vals - min(z_vals)) / (max(z_vals) - min(z_vals))
+color_map <- rgb(curv_scaled, 1 - curv_scaled, 0.5)
+
+# Plot 3D ROC surface
+scatterplot3js(x = roc_matrix,
+               color = color_map,
+               size = 0.1,
+               labels = round(grid, 3),
+               xlab = "1 - Specificity",
+               ylab = "Sensitivity",
+               zlab = "Curvature")
+
+
+```
+
+
+
+
+
+
+
+Clinical Tip
+If 1-specificity is flat or sparse, consider modeling it jointly with sensitivity using a multivariate FDA approach or regularized smoothing. I can help you build a joint basis or penalized functional regression if needed.
+
+
+

@@ -1,0 +1,217 @@
+---
+title: "ROC"
+author: JB Rickert and my Google AI friend
+format: html
+---
+
+
+## Logistic Regression Example 
+
+
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: TRUE
+#| code-summary: "R Packages"
+library(tidyverse)
+library(tidymodels)
+library(MASS)
+```
+
+```{r}
+# Load the biopsy dataset
+data(biopsy, package = "MASS")
+
+names(biopsy) <- c("ID",
+"clump thickness",
+"uniformity of cell size",
+"uniformity of cell shape",
+"marginal adhesion",
+"single epithelial cell size",
+"bare nuclei",
+"bland chromatin",
+"normal nucleoli",
+"mitoses",
+"class")
+
+
+# Clean column names and convert the outcome to a factor
+biopsy <- biopsy %>%
+  janitor::clean_names() %>%
+  mutate(outcome = factor(class, levels = c("malignant", "benign")))
+```
+
+
+### Fit the Predictive Model
+
+```{r}
+# Split the data (a best practice, though not strictly required for this example)
+biopsy_split <- initial_split(biopsy, prop = 0.8)
+biopsy_train <- training(biopsy_split)
+biopsy_test <- testing(biopsy_split)
+
+# Define and fit a logistic regression model
+logistic_fit <- logistic_reg() %>%
+  set_engine("glm") %>%
+  fit(outcome ~ clump_thickness + uniformity_of_cell_size + uniformity_of_cell_shape +
+        marginal_adhesion + bare_nuclei, data = biopsy_train)
+
+# Generate predictions on the test set
+biopsy_predictions <- predict(logistic_fit, new_data = biopsy_test, type = "prob") %>%
+  bind_cols(biopsy_test) %>% drop_na
+```
+
+### Manually Create the ROC Curve
+```{r}
+# Create a sequence of thresholds from 0 to 1
+thresholds <- seq(0, 1, by = 0.01)
+
+# Calculate TPR and FPR for each threshold
+manual_roc_data <- map_dfr(thresholds, ~ {
+  # For a given threshold, classify predictions as "malignant" or "benign"
+  predictions_at_threshold <- biopsy_predictions %>%
+    mutate(
+      .pred_class = factor(
+        if_else(.pred_malignant >= .x, "malignant", "benign"),
+        levels = c("malignant", "benign")
+      )
+    )
+
+  # Create a confusion matrix
+  conf_mat <- conf_mat(predictions_at_threshold, truth = outcome, estimate = .pred_class)
+
+  # Extract true positives (TP), false positives (FP), etc.
+  tp <- conf_mat$table["malignant", "malignant"]
+  fp <- conf_mat$table["benign", "malignant"]
+  tn <- conf_mat$table["benign", "benign"]
+  fn <- conf_mat$table["malignant", "benign"]
+
+  # Calculate TPR and FPR
+  tpr <- tp / (tp + fn)
+  fpr <- fp / (fp + tn)
+
+  # Return a tibble row for this threshold
+  tibble(
+    .threshold = .x,
+    sensitivity = tpr, # TPR is equivalent to sensitivity
+    `1-specificity` = fpr # FPR is equivalent to 1-specificity
+  )
+})
+```
+
+## Density check to see labels are correct
+
+```{r}
+biopsy_predictions |> ggplot(aes(x=.pred_malignant, col=outcome)) + geom_density()
+```
+
+
+
+## Plot Manual ROC Curve
+```{r}
+
+# Plot the Manual ROC Curve
+ggplot(manual_roc_data, aes(x = `1-specificity`, y = sensitivity)) +
+  geom_line(size = 1) +
+  geom_abline(linetype = "dashed") +
+  scale_x_continuous(limits = c(0,0.2)) +
+  labs(
+    title = "Manual ROC Curve",
+    x = "False Positive Rate (1 - Specificity)",
+    y = "True Positive Rate (Sensitivity)"
+  ) +
+  coord_equal()
+
+```
+
+In the tidyverse ecosystem, the yardstick package calculates the ROC curve by evaluating all unique probability thresholds present in the data, as well as -infinity and +infinity. This is supposed to provide a more precise curve than manually setting a fixed number of thresholds.
+
+
+
+```{r}
+# Calculate ROC curve data
+roc_data <- biopsy_predictions %>%
+  roc_curve(truth = outcome, .pred_malignant)
+
+# Plot the ROC curve
+autoplot(roc_data) +
+  labs(
+    title = "ROC Curve for Logistic Regression Model",
+    subtitle = "Predicting malignant vs. benign tumors"
+  )
+```
+
+
+
+## Plot Manual ROC Curve along with yardstick package calculated ROC
+
+```{r}
+
+# Calculate the automatic yardstick ROC curve for comparison
+yardstick_roc_data <- biopsy_predictions %>%
+  roc_curve(truth = outcome, .pred_malignant) %>%
+  # Use dplyr::select() to ensure the correct function is called
+  dplyr::select(-.threshold) %>%
+  dplyr::rename(`1-specificity` = specificity) %>%
+  dplyr::mutate(`1-specificity` = 1 - `1-specificity`) %>%
+  dplyr::mutate(Source = "yardstick")
+
+# Add the manual ROC data to the comparison dataframe
+plot_data <- manual_roc_data %>%
+  mutate(Source = "Manual Calculation") %>%
+  bind_rows(yardstick_roc_data)
+
+# Plot both ROC curves
+ggplot(plot_data, aes(x = `1-specificity`, y = sensitivity, color = Source)) +
+  geom_line(size = 1) +
+  geom_abline(linetype = "dashed") +
+  labs(
+    title = "ROC Curve: Manual vs. yardstick",
+    subtitle = "Comparing calculation methods",
+    x = "False Positive Rate (1 - Specificity)",
+    y = "True Positive Rate (Sensitivity)"
+  ) +
+  coord_equal() +
+  theme_minimal()
+```
+
+### Kernel Smoothing exercise
+
+```{r}
+# Sample data
+
+biopsy_roc_df <- manual_roc_data |> drop_na()
+names(biopsy_roc_df) <- c("threshold", "sensitivity", "one_minus_specificity")
+
+threshold <- biopsy_roc_df$threshold
+sensitivity <- biopsy_roc_df$sensitivity
+one_minus_specificity <- biopsy_roc_df$one_minus_specificity
+
+# Impute or remove NA for smoothing
+threshold_clean <- threshold[!is.na(one_minus_specificity)]
+one_minus_spec_clean <- one_minus_specificity[!is.na(one_minus_specificity)]
+
+# Kernel smoothing
+smooth_1mspec <- ksmooth(x = threshold_clean, y = one_minus_spec_clean,
+                         kernel = "normal", bandwidth = 0.02, x.points = threshold)
+
+# Estimate specificity
+smooth_spec <- data.frame(
+  threshold = smooth_1mspec$x,
+  specificity = 1 - smooth_1mspec$y
+)
+
+# Optional: smooth sensitivity too
+smooth_sens <- ksmooth(x = threshold, y = sensitivity,
+                       kernel = "normal", bandwidth = 0.02, x.points = threshold)
+
+# Combine for parameterized curve
+roc_curve <- data.frame(
+  threshold = threshold,
+  sensitivity = smooth_sens$y,
+  specificity = 1 - smooth_1mspec$y
+)
+```
+
+
+

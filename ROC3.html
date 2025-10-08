@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.3.433">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="dcterms.date" content="2025-09-29">
+
+<title>ROC3</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="ROC3_files/libs/clipboard/clipboard.min.js"></script>
+<script src="ROC3_files/libs/quarto-html/quarto.js"></script>
+<script src="ROC3_files/libs/quarto-html/popper.min.js"></script>
+<script src="ROC3_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="ROC3_files/libs/quarto-html/anchor.min.js"></script>
+<link href="ROC3_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="ROC3_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="ROC3_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="ROC3_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="ROC3_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<link href="ROC3_files/libs/htmltools-fill-0.5.8.1/fill.css" rel="stylesheet">
+<script src="ROC3_files/libs/htmlwidgets-1.6.4/htmlwidgets.js"></script>
+<script src="ROC3_files/libs/jquery-3.5.1/jquery.min.js"></script>
+<script src="ROC3_files/libs/threejs-111/three.min.js"></script>
+<script src="ROC3_files/libs/threejs-111/Detector.js"></script>
+<script src="ROC3_files/libs/threejs-111/Projector.js"></script>
+<script src="ROC3_files/libs/threejs-111/CanvasRenderer.js"></script>
+<script src="ROC3_files/libs/threejs-111/TrackballControls.js"></script>
+<script src="ROC3_files/libs/threejs-111/StateOrbitControls.js"></script>
+<script src="ROC3_files/libs/scatterplotThree-binding-0.3.3/scatterplotThree.js"></script>
+<link href="ROC3_files/libs/crosstalk-1.2.1/css/crosstalk.min.css" rel="stylesheet">
+<script src="ROC3_files/libs/crosstalk-1.2.1/js/crosstalk.min.js"></script>
+
+
+</head>
+
+<body class="fullcontent">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">ROC3</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">September 29, 2025</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+</header>
+
+<div class="cell">
+<details>
+<summary>R Packages</summary>
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidymodels)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(MASS)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(fda)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(threejs)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="cell">
+<details>
+<summary>Shoe the Code</summary>
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Load the biopsy dataset</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span>(biopsy, <span class="at">package =</span> <span class="st">"MASS"</span>)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(biopsy) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"ID"</span>,</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="st">"clump thickness"</span>,</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="st">"uniformity of cell size"</span>,</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="st">"uniformity of cell shape"</span>,</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="st">"marginal adhesion"</span>,</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="st">"single epithelial cell size"</span>,</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="st">"bare nuclei"</span>,</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="st">"bland chromatin"</span>,</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="st">"normal nucleoli"</span>,</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="st">"mitoses"</span>,</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="st">"class"</span>)</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Clean column names and convert the outcome to a factor</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>biopsy <span class="ot">&lt;-</span> biopsy <span class="sc">%&gt;%</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  janitor<span class="sc">::</span><span class="fu">clean_names</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">outcome =</span> <span class="fu">factor</span>(class, <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">"malignant"</span>, <span class="st">"benign"</span>)))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<section id="fit-the-predictive-model" class="level3">
+<h3 class="anchored" data-anchor-id="fit-the-predictive-model">Fit the Predictive Model</h3>
+<div class="cell">
+<details>
+<summary>Shoe the Code</summary>
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Split the data (a best practice, though not strictly required for this example)</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>biopsy_split <span class="ot">&lt;-</span> <span class="fu">initial_split</span>(biopsy, <span class="at">prop =</span> <span class="fl">0.8</span>)</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>biopsy_train <span class="ot">&lt;-</span> <span class="fu">training</span>(biopsy_split)</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>biopsy_test <span class="ot">&lt;-</span> <span class="fu">testing</span>(biopsy_split)</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Define and fit a logistic regression model</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>logistic_fit <span class="ot">&lt;-</span> <span class="fu">logistic_reg</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set_engine</span>(<span class="st">"glm"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fit</span>(outcome <span class="sc">~</span> clump_thickness <span class="sc">+</span> uniformity_of_cell_size <span class="sc">+</span> uniformity_of_cell_shape <span class="sc">+</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        marginal_adhesion <span class="sc">+</span> bare_nuclei, <span class="at">data =</span> biopsy_train)</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="co"># Generate predictions on the test set</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>biopsy_predictions <span class="ot">&lt;-</span> <span class="fu">predict</span>(logistic_fit, <span class="at">new_data =</span> biopsy_test, <span class="at">type =</span> <span class="st">"prob"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">bind_cols</span>(biopsy_test) <span class="sc">%&gt;%</span> <span class="fu">drop_na</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="manually-create-the-roc-curve" class="level3">
+<h3 class="anchored" data-anchor-id="manually-create-the-roc-curve">Manually Create the ROC Curve</h3>
+<div class="cell">
+<details>
+<summary>Shoe the Code</summary>
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Create a sequence of thresholds from 0 to 1</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>thresholds <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">1</span>, <span class="at">by =</span> <span class="fl">0.01</span>)</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate TPR and FPR for each threshold</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>manual_roc_data <span class="ot">&lt;-</span> <span class="fu">map_dfr</span>(thresholds, <span class="sc">~</span> {</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="co"># For a given threshold, classify predictions as "malignant" or "benign"</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  predictions_at_threshold <span class="ot">&lt;-</span> biopsy_predictions <span class="sc">%&gt;%</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>      <span class="at">.pred_class =</span> <span class="fu">factor</span>(</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        <span class="fu">if_else</span>(.pred_malignant <span class="sc">&gt;=</span> .x, <span class="st">"malignant"</span>, <span class="st">"benign"</span>),</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">"malignant"</span>, <span class="st">"benign"</span>)</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>      )</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Create a confusion matrix</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>  conf_mat <span class="ot">&lt;-</span> <span class="fu">conf_mat</span>(predictions_at_threshold, <span class="at">truth =</span> outcome, <span class="at">estimate =</span> .pred_class)</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Extract true positives (TP), false positives (FP), etc.</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>  tp <span class="ot">&lt;-</span> conf_mat<span class="sc">$</span>table[<span class="st">"malignant"</span>, <span class="st">"malignant"</span>]</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>  fp <span class="ot">&lt;-</span> conf_mat<span class="sc">$</span>table[<span class="st">"benign"</span>, <span class="st">"malignant"</span>]</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>  tn <span class="ot">&lt;-</span> conf_mat<span class="sc">$</span>table[<span class="st">"benign"</span>, <span class="st">"benign"</span>]</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>  fn <span class="ot">&lt;-</span> conf_mat<span class="sc">$</span>table[<span class="st">"malignant"</span>, <span class="st">"benign"</span>]</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Calculate TPR and FPR</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>  tpr <span class="ot">&lt;-</span> tp <span class="sc">/</span> (tp <span class="sc">+</span> fn)</span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>  fpr <span class="ot">&lt;-</span> fp <span class="sc">/</span> (fp <span class="sc">+</span> tn)</span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Return a tibble row for this threshold</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(</span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>    <span class="at">.threshold =</span> .x,</span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>    <span class="at">sensitivity =</span> tpr, <span class="co"># TPR is equivalent to sensitivity</span></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>    <span class="st">`</span><span class="at">1-specificity</span><span class="st">`</span> <span class="ot">=</span> fpr <span class="co"># FPR is equivalent to 1-specificity</span></span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>})</span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>manual_roc_data <span class="ot">&lt;-</span> manual_roc_data <span class="sc">%&gt;%</span> <span class="fu">drop_na</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="plot-manual-roc-curve" class="level2">
+<h2 class="anchored" data-anchor-id="plot-manual-roc-curve">Plot Manual ROC Curve</h2>
+<div class="cell">
+<details>
+<summary>Shoe the Code</summary>
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot the Manual ROC Curve</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(manual_roc_data, <span class="fu">aes</span>(<span class="at">x =</span> <span class="st">`</span><span class="at">1-specificity</span><span class="st">`</span>, <span class="at">y =</span> sensitivity)) <span class="sc">+</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">size =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_abline</span>(<span class="at">linetype =</span> <span class="st">"dashed"</span>) <span class="sc">+</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">0</span>,<span class="fl">0.2</span>)) <span class="sc">+</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Manual ROC Curve"</span>,</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"False Positive Rate (1 - Specificity)"</span>,</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"True Positive Rate (Sensitivity)"</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_equal</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Using `size` aesthetic for lines was deprecated in ggplot2 3.4.0.
+ℹ Please use `linewidth` instead.</code></pre>
+</div>
+<div class="cell-output-display">
+<p><img src="ROC3_files/figure-html/unnamed-chunk-5-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<section id="tidyverse-roc-calculation" class="level3">
+<h3 class="anchored" data-anchor-id="tidyverse-roc-calculation">Tidyverse ROC Calculation</h3>
+<div class="cell">
+<details>
+<summary>Shoe the Code</summary>
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate ROC curve data</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>roc_data <span class="ot">&lt;-</span> biopsy_predictions <span class="sc">%&gt;%</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">roc_curve</span>(<span class="at">truth =</span> outcome, .pred_malignant)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot the ROC curve</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="fu">autoplot</span>(roc_data) <span class="sc">+</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"ROC Curve for Logistic Regression Model"</span>,</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="st">"Predicting malignant vs. benign tumors"</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>  )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img src="ROC3_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+</section>
+</section>
+<section id="prepare-the-data-for-fda-roc" class="level2">
+<h2 class="anchored" data-anchor-id="prepare-the-data-for-fda-roc">Prepare the Data for FDA ROC</h2>
+<div class="cell">
+<details>
+<summary>Shoe the Code</summary>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>biopsy_roc_df <span class="ot">&lt;-</span> manual_roc_data <span class="sc">|&gt;</span> <span class="fu">drop_na</span>()</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(biopsy_roc_df) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"threshold"</span>, <span class="st">"sensitivity"</span>, <span class="st">"one_minus_specificity"</span>)</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>threshold <span class="ot">&lt;-</span> biopsy_roc_df<span class="sc">$</span>threshold</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>sensitivity <span class="ot">&lt;-</span> biopsy_roc_df<span class="sc">$</span>sensitivity</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>one_minus_specificity <span class="ot">&lt;-</span> biopsy_roc_df<span class="sc">$</span>one_minus_specificity</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<section id="tidyverse-code-to-prepare-data-for-fda" class="level3">
+<h3 class="anchored" data-anchor-id="tidyverse-code-to-prepare-data-for-fda">Tidyverse Code to Prepare Data for FDA</h3>
+<div class="cell">
+<details>
+<summary>Shoe the Code</summary>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># roc_data_2 &lt;- roc_data %&gt;% filter(row_number() != 1 &amp; row_number() != n())</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="co"># </span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="co"># roc_data_3 &lt;- roc_data_2 %&gt;% mutate(one_minus_specificity = 1- specificity)</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="co"># names(roc_data_3) &lt;- c("threshold", "specificity", "sensitivity", "one_minus_specificity")</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="co"># </span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="co"># </span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a><span class="co"># threshold &lt;- roc_data_3$threshold</span></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a><span class="co"># sensitivity &lt;- roc_data_3$sensitivity</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a><span class="co"># one_minus_specificity &lt;- roc_data_3$one_minus_specificity</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a> <span class="co">#Create B-spline basis</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="co">#| code-fold: TRUE</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="co">#| code-summary: "Shoe the Code"</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>nbasis <span class="ot">&lt;-</span> <span class="dv">5</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>basis <span class="ot">&lt;-</span> <span class="fu">create.bspline.basis</span>(<span class="at">rangeval =</span> <span class="fu">range</span>(threshold), <span class="at">nbasis =</span> nbasis)</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Fit FDA objects</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>sens_fd <span class="ot">&lt;-</span> <span class="fu">smooth.basis</span>(threshold, sensitivity, basis)<span class="sc">$</span>fd</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>spec_fd <span class="ot">&lt;-</span> <span class="fu">smooth.basis</span>(threshold, one_minus_specificity, basis)<span class="sc">$</span>fd</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Evaluate on fine grid</span></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>grid <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="fu">min</span>(threshold), <span class="fu">max</span>(threshold), <span class="at">length.out =</span> <span class="dv">100</span>)</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>sens_vals <span class="ot">&lt;-</span> <span class="fu">eval.fd</span>(grid, sens_fd)</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>spec_vals <span class="ot">&lt;-</span> <span class="fu">eval.fd</span>(grid, spec_fd)</span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot ROC curve: sensitivity vs. 1-specificity</span></span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(spec_vals, sens_vals, <span class="at">type =</span> <span class="st">"l"</span>, <span class="at">col =</span> <span class="st">"blue"</span>, <span class="at">lwd =</span> <span class="dv">2</span>,</span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"1 - Specificity"</span>, <span class="at">ylab =</span> <span class="st">"Sensitivity"</span>,</span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Smoothed ROC Curve (FDA)"</span>)</span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a><span class="fu">grid</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="ROC3_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+</section>
+<section id="estimate-curvature" class="level3">
+<h3 class="anchored" data-anchor-id="estimate-curvature">Estimate Curvature</h3>
+<div class="cell">
+<details>
+<summary>Shoe the Code</summary>
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(fda)</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Clean threshold grid</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>grid <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="fu">min</span>(threshold, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="fu">max</span>(threshold, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="at">length.out =</span> <span class="dv">100</span>)</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Derivative operators</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>D1 <span class="ot">&lt;-</span> <span class="fu">int2Lfd</span>(<span class="dv">1</span>)</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>D2 <span class="ot">&lt;-</span> <span class="fu">int2Lfd</span>(<span class="dv">2</span>)</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Evaluate derivatives</span></span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>x1 <span class="ot">&lt;-</span> <span class="fu">eval.fd</span>(grid, spec_fd, D1)</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>x2 <span class="ot">&lt;-</span> <span class="fu">eval.fd</span>(grid, spec_fd, D2)</span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>y1 <span class="ot">&lt;-</span> <span class="fu">eval.fd</span>(grid, sens_fd, D1)</span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>y2 <span class="ot">&lt;-</span> <span class="fu">eval.fd</span>(grid, sens_fd, D2)</span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Curvature formula</span></span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>curvature <span class="ot">&lt;-</span> (x1 <span class="sc">*</span> y2 <span class="sc">-</span> y1 <span class="sc">*</span> x2) <span class="sc">/</span> ((x1<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> y1<span class="sc">^</span><span class="dv">2</span>)<span class="sc">^</span>(<span class="dv">3</span><span class="sc">/</span><span class="dv">2</span>))</span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot</span></span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(grid, curvature, <span class="at">type =</span> <span class="st">"l"</span>, <span class="at">col =</span> <span class="st">"darkgreen"</span>, <span class="at">lwd =</span> <span class="dv">2</span>,</span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"Threshold"</span>, <span class="at">ylab =</span> <span class="st">"Curvature"</span>,</span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Curvature of ROC Curve"</span>)</span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a><span class="fu">grid</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img src="ROC3_files/figure-html/unnamed-chunk-10-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<div class="cell">
+<details>
+<summary>Shoe the Code</summary>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>curvature_df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(grid, x1, x2, y1, y2, curvature)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<p>`</p>
+</section>
+</section>
+<section id="d-plot-of-curvature-surface" class="level2">
+<h2 class="anchored" data-anchor-id="d-plot-of-curvature-surface">3D plot of Curvature Surface</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>grid <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="fu">min</span>(threshold, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="fu">max</span>(threshold, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="at">length.out =</span> <span class="dv">400</span>)</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Evaluate ROC components</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>x_vals <span class="ot">&lt;-</span> <span class="fu">eval.fd</span>(grid, spec_fd)         <span class="co"># 1 - specificity</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>y_vals <span class="ot">&lt;-</span> <span class="fu">eval.fd</span>(grid, sens_fd)         <span class="co"># sensitivity</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Derivatives for curvature</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>D1 <span class="ot">&lt;-</span> <span class="fu">int2Lfd</span>(<span class="dv">1</span>)</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>D2 <span class="ot">&lt;-</span> <span class="fu">int2Lfd</span>(<span class="dv">2</span>)</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>x1 <span class="ot">&lt;-</span> <span class="fu">eval.fd</span>(grid, spec_fd, D1)</span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>x2 <span class="ot">&lt;-</span> <span class="fu">eval.fd</span>(grid, spec_fd, D2)</span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>y1 <span class="ot">&lt;-</span> <span class="fu">eval.fd</span>(grid, sens_fd, D1)</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>y2 <span class="ot">&lt;-</span> <span class="fu">eval.fd</span>(grid, sens_fd, D2)</span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a><span class="co"># Curvature</span></span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>z_vals <span class="ot">&lt;-</span> (x1 <span class="sc">*</span> y2 <span class="sc">-</span> y1 <span class="sc">*</span> x2) <span class="sc">/</span> ((x1<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> y1<span class="sc">^</span><span class="dv">2</span>)<span class="sc">^</span>(<span class="dv">3</span><span class="sc">/</span><span class="dv">2</span>))</span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a><span class="co"># Combine into a 3-column matrix</span></span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a>roc_matrix <span class="ot">&lt;-</span> <span class="fu">cbind</span>(x_vals, y_vals, z_vals)</span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a><span class="co"># Normalize curvature for color gradient</span></span>
+<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a>curv_scaled <span class="ot">&lt;-</span> (z_vals <span class="sc">-</span> <span class="fu">min</span>(z_vals)) <span class="sc">/</span> (<span class="fu">max</span>(z_vals) <span class="sc">-</span> <span class="fu">min</span>(z_vals))</span>
+<span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a>color_map <span class="ot">&lt;-</span> <span class="fu">rgb</span>(curv_scaled, <span class="dv">1</span> <span class="sc">-</span> curv_scaled, <span class="fl">0.5</span>)</span>
+<span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot 3D ROC surface</span></span>
+<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a><span class="fu">scatterplot3js</span>(<span class="at">x =</span> roc_matrix,</span>
+<span id="cb13-27"><a href="#cb13-27" aria-hidden="true" tabindex="-1"></a>               <span class="at">color =</span> color_map,</span>
+<span id="cb13-28"><a href="#cb13-28" aria-hidden="true" tabindex="-1"></a>               <span class="at">size =</span> <span class="fl">0.1</span>,</span>
+<span id="cb13-29"><a href="#cb13-29" aria-hidden="true" tabindex="-1"></a>               <span class="at">labels =</span> <span class="fu">round</span>(grid, <span class="dv">3</span>),</span>
+<span id="cb13-30"><a href="#cb13-30" aria-hidden="true" tabindex="-1"></a>               <span class="at">xlab =</span> <span class="st">"1 - Specificity"</span>,</span>
+<span id="cb13-31"><a href="#cb13-31" aria-hidden="true" tabindex="-1"></a>               <span class="at">ylab =</span> <span class="st">"Sensitivity"</span>,</span>
+<span id="cb13-32"><a href="#cb13-32" aria-hidden="true" tabindex="-1"></a>               <span class="at">zlab =</span> <span class="st">"Curvature"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in ans[i] &lt;- sprintf("%.2e", x): number of items to replace is not a
+multiple of replacement length</code></pre>
+</div>
+<div class="cell-output-display">
+<div class="scatterplotThree html-widget html-fill-item" id="OQuRWFrZcU" style="width:100%;height:464px;"></div>
+<script type="application/json" data-for="OQuRWFrZcU">{"x":{"NROW":400,"height":null,"width":null,"axis":true,"numticks":[6,6,6],"xticklabs":null,"yticklabs":null,"zticklabs":null,"color":[["#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#1AE580","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#18E780","#18E780","#18E780","#18E780","#18E780","#18E780","#18E780","#18E780","#18E780","#18E780","#18E780","#17E880","#17E880","#17E880","#17E880","#17E880","#17E880","#17E880","#16E980","#16E980","#16E980","#16E980","#16E980","#15EA80","#15EA80","#15EA80","#15EA80","#14EB80","#14EB80","#14EB80","#14EB80","#13EC80","#13EC80","#12ED80","#12ED80","#12ED80","#11EE80","#11EE80","#10EF80","#10EF80","#0FF080","#0FF080","#0EF180","#0DF280","#0DF280","#0CF380","#0CF380","#0BF480","#0AF580","#09F680","#09F680","#08F780","#07F880","#06F980","#05FA80","#05FA80","#04FB80","#03FC80","#03FC80","#02FD80","#01FE80","#01FE80","#00FF80","#00FF80","#00FF80","#00FF80","#00FF80","#01FE80","#01FE80","#02FD80","#04FB80","#05FA80","#07F880","#0AF580","#0DF280","#11EE80","#15EA80","#1BE480","#21DE80","#28D780","#30CF80","#39C680","#44BB80","#4FB080","#5CA380","#6B9480","#7A8580","#8B7480","#9C6380","#AE5180","#C03F80","#D12E80","#E01F80","#ED1280","#F70880","#FD0280","#FF0080","#FD0280","#F60980","#EC1380","#DF2080","#D12E80","#C13E80","#B14E80","#A15E80","#926D80","#837C80","#768980","#6B9480","#609F80","#57A880","#4EB180","#47B880","#40BF80","#3AC580","#34CB80","#30CF80","#2CD380","#29D680","#27D880","#24DB80","#22DD80","#21DE80","#1FE080","#1EE180","#1DE280","#1CE380","#1BE480","#1AE580","#1AE580","#19E680","#19E680","#18E780","#18E780","#17E880","#17E880","#17E880","#16E980","#16E980","#16E980","#16E980","#15EA80","#15EA80","#15EA80","#15EA80","#14EB80","#14EB80","#14EB80","#14EB80","#14EB80","#14EB80","#13EC80","#13EC80","#13EC80","#13EC80","#13EC80","#13EC80","#12ED80","#12ED80","#12ED80","#12ED80","#12ED80","#12ED80","#12ED80","#11EE80","#11EE80","#11EE80","#11EE80","#11EE80","#11EE80","#11EE80","#10EF80","#10EF80","#10EF80","#10EF80","#10EF80","#10EF80","#10EF80","#10EF80","#0FF080","#0FF080","#0FF080","#0FF080","#0FF080","#0FF080","#0FF080","#0FF080","#0FF080","#0FF080","#0FF080","#0EF180","#0EF180","#0EF180","#0EF180","#0EF180","#0EF180","#0EF180","#0EF180","#0EF180","#0EF180","#0EF180","#0EF180","#0EF180","#0EF180","#0EF180","#0FF080","#0FF080","#0FF080","#0FF080","#0FF080","#0FF080","#0FF080","#0FF080","#0FF080","#10EF80","#10EF80","#10EF80","#10EF80","#10EF80","#10EF80","#11EE80","#11EE80","#11EE80","#11EE80","#11EE80","#11EE80","#12ED80","#12ED80","#12ED80","#12ED80","#12ED80","#13EC80","#13EC80","#13EC80","#13EC80","#13EC80","#13EC80","#14EB80","#14EB80","#14EB80","#14EB80","#14EB80","#15EA80","#15EA80","#15EA80","#15EA80","#15EA80","#15EA80","#15EA80","#16E980","#16E980","#16E980","#16E980","#16E980","#16E980","#16E980","#16E980","#17E880","#17E880","#17E880","#17E880","#17E880","#17E880","#17E880","#17E880","#17E880","#17E880","#18E780","#18E780","#18E780","#18E780","#18E780","#18E780","#18E780","#18E780","#18E780","#18E780","#18E780","#18E780","#18E780","#18E780","#18E780","#18E780","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680","#19E680"]],"size":0.1,"stroke":"black","flipy":true,"grid":true,"renderer":"auto","signif":8,"bg":"#ffffff","cexsymbols":1,"xlim":{},"ylim":{},"zlim":{},"axisscale":[1,1,1],"pch":["@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@","@"],"elementId":"OQuRWFrZcU","labels":[0.01,0.012,0.015,0.017,0.02,0.022,0.025,0.027,0.03,0.032,0.035,0.037,0.039,0.042,0.044,0.047,0.049,0.052,0.054,0.057,0.059,0.062,0.064,0.066,0.06900000000000001,0.07099999999999999,0.074,0.076,0.079,0.081,0.08400000000000001,0.08599999999999999,0.089,0.091,0.094,0.096,0.098,0.101,0.103,0.106,0.108,0.111,0.113,0.116,0.118,0.121,0.123,0.125,0.128,0.13,0.133,0.135,0.138,0.14,0.143,0.145,0.148,0.15,0.152,0.155,0.157,0.16,0.162,0.165,0.167,0.17,0.172,0.175,0.177,0.179,0.182,0.184,0.187,0.189,0.192,0.194,0.197,0.199,0.202,0.204,0.206,0.209,0.211,0.214,0.216,0.219,0.221,0.224,0.226,0.229,0.231,0.234,0.236,0.238,0.241,0.243,0.246,0.248,0.251,0.253,0.256,0.258,0.261,0.263,0.265,0.268,0.27,0.273,0.275,0.278,0.28,0.283,0.285,0.288,0.29,0.292,0.295,0.297,0.3,0.302,0.305,0.307,0.31,0.312,0.315,0.317,0.319,0.322,0.324,0.327,0.329,0.332,0.334,0.337,0.339,0.342,0.344,0.346,0.349,0.351,0.354,0.356,0.359,0.361,0.364,0.366,0.369,0.371,0.374,0.376,0.378,0.381,0.383,0.386,0.388,0.391,0.393,0.396,0.398,0.401,0.403,0.405,0.408,0.41,0.413,0.415,0.418,0.42,0.423,0.425,0.428,0.43,0.432,0.435,0.437,0.44,0.442,0.445,0.447,0.45,0.452,0.455,0.457,0.459,0.462,0.464,0.467,0.469,0.472,0.474,0.477,0.479,0.482,0.484,0.486,0.489,0.491,0.494,0.496,0.499,0.501,0.504,0.506,0.509,0.511,0.514,0.516,0.518,0.521,0.523,0.526,0.528,0.531,0.533,0.536,0.538,0.541,0.543,0.545,0.548,0.55,0.553,0.555,0.5580000000000001,0.5600000000000001,0.5629999999999999,0.5649999999999999,0.5679999999999999,0.57,0.572,0.575,0.577,0.58,0.582,0.585,0.587,0.59,0.592,0.595,0.597,0.599,0.602,0.604,0.607,0.609,0.612,0.614,0.617,0.619,0.622,0.624,0.626,0.629,0.631,0.634,0.636,0.639,0.641,0.644,0.646,0.649,0.651,0.654,0.656,0.658,0.661,0.663,0.666,0.668,0.671,0.673,0.676,0.678,0.681,0.6830000000000001,0.6850000000000001,0.6879999999999999,0.6899999999999999,0.6929999999999999,0.695,0.698,0.7,0.703,0.705,0.708,0.71,0.712,0.715,0.717,0.72,0.722,0.725,0.727,0.73,0.732,0.735,0.737,0.739,0.742,0.744,0.747,0.749,0.752,0.754,0.757,0.759,0.762,0.764,0.766,0.769,0.771,0.774,0.776,0.779,0.781,0.784,0.786,0.789,0.791,0.794,0.796,0.798,0.801,0.803,0.806,0.8080000000000001,0.8110000000000001,0.8129999999999999,0.8159999999999999,0.8179999999999999,0.821,0.823,0.825,0.828,0.83,0.833,0.835,0.838,0.84,0.843,0.845,0.848,0.85,0.852,0.855,0.857,0.86,0.862,0.865,0.867,0.87,0.872,0.875,0.877,0.879,0.882,0.884,0.887,0.889,0.892,0.894,0.897,0.899,0.902,0.904,0.906,0.909,0.911,0.914,0.916,0.919,0.921,0.924,0.926,0.929,0.931,0.9340000000000001,0.9360000000000001,0.9379999999999999,0.9409999999999999,0.9429999999999999,0.946,0.948,0.951,0.953,0.956,0.958,0.961,0.963,0.965,0.968,0.97,0.973,0.975,0.978,0.98,0.983,0.985,0.988,0.99],"xlab":"1 - Specificity","ylab":"Sensitivity","zlab":"Curvature","linealpha":1,"alpha":[[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],"vertices":[[0,0.10176282,1,0.0042700048,0.10175334,0.9864301,0.0085113467,0.10174357,0.9730174,0.012724099,0.10173351,0.95976099,0.016908333,0.10172315,0.94665993,0.021064122,0.10171247,0.9337133,0.025191539,0.10170147,0.92092016,0.029290656,0.10169014,0.90827959,0.033361546,0.10167846,0.89579065,0.037404281,0.10166641,0.88345244,0.041418935,0.101654,0.871264,0.045405579,0.10164119,0.85922442,0.049364286,0.10162798,0.84733277,0.053295129,0.10161436,0.83558812,0.05719818,0.1016003,0.82398953,0.061073513,0.10158579,0.8125361,0.064921198,0.10157082,0.80122687,0.068741311,0.10155537,0.79006094,0.072533921,0.10153941,0.77903736,0.07629910400000001,0.10152292,0.76815521,0.08003693000000001,0.1015059,0.75741357,0.083747473,0.10148831,0.7468115,0.087430804,0.10147014,0.73634808,0.091086998,0.10145136,0.72602237,0.094716126,0.10143194,0.71583346,0.098318261,0.10141187,0.7057804,0.10189348,0.10139111,0.6958622800000001,0.10544184,0.10136964,0.68607817,0.10896343,0.10134743,0.67642713,0.11245832,0.10132445,0.66690825,0.11592658,0.10130066,0.65752058,0.11936828,0.10127604,0.64826321,0.1227835,0.10125054,0.63913521,0.1261723,0.10122414,0.63013564,0.12953477,0.10119679,0.62126358,0.13287096,0.10116845,0.6125181,0.13618097,0.10113909,0.60389827,0.13946485,0.10110865,0.59540317,0.14272268,0.10107709,0.58703186,0.14595453,0.10104437,0.57878342,0.14916048,0.10101042,0.57065692,0.1523406,0.10097521,0.56265144,0.15549496,0.10093866,0.55476604,0.15862364,0.10090073,0.54699979,0.1617267,0.10086135,0.53935177,0.16480421,0.10082045,0.53182105,0.16785626,0.10077797,0.5244067100000001,0.17088292,0.10073383,0.5171078,0.17388425,0.10068796,0.50992341,0.17686033,0.10064028,0.50285261,0.17981123,0.1005907,0.49589447,0.18273703,0.10053914,0.48904806,0.18563779,0.10048549,0.48231245,0.1885136,0.10042968,0.47568671,0.19136451,0.10037158,0.46916993,0.19419061,0.10031109,0.46276116,0.19699197,0.10024809,0.45645948,0.19976866,0.10018247,0.45026396,0.20252075,0.10011409,0.44417367,0.20524831,0.10004283,0.4381877,0.20795143,0.099968529,0.4323051,0.21063016,0.099891045,0.42652495,0.21328459,0.09981021900000001,0.42084632,0.21591478,0.099725881,0.41526828,0.21852081,0.099637853,0.40978991,0.22110275,0.099545948,0.40441028,0.22366067,0.099449966,0.39912846,0.22619465,0.099349698,0.39394351,0.22870476,0.099244921,0.38885452,0.23119107,0.0991354,0.38386056,0.23365366,0.099020884,0.37896069,0.23609259,0.098901111,0.37415399,0.23850794,0.098775802,0.36943953,0.24089978,0.098644659,0.36481638,0.24326818,0.098507371,0.36028361,0.24561322,0.09836360299999999,0.3558403,0.24793497,0.09821300500000001,0.35148552,0.25023351,0.09805520299999999,0.34721834,0.25250889,0.0978898,0.34303783,0.25476121,0.09771637800000001,0.33894307,0.25699052,0.097534489,0.33493312,0.25919691,0.097343663,0.33100705,0.26138044,0.09714339700000001,0.32716395,0.26354119,0.096933159,0.32340288,0.26567923,0.096712383,0.31972291,0.26779463,0.096480471,0.31612311,0.26988747,0.09623678500000001,0.31260256,0.27195781,0.09598065,0.30916033,0.27400574,0.095711347,0.30579549,0.27603131,0.09542811499999999,0.30250711,0.27803462,0.095130145,0.29929427,0.28001572,0.094816577,0.29615603,0.28197469,0.0944865,0.29309147,0.28391161,0.094138946,0.29009966,0.28582654,0.093772887,0.28717967,0.28771956,0.093387234,0.28433057,0.28959074,0.092980829,0.28155144,0.29144016,0.092552448,0.27884135,0.29326788,0.092100789,0.27619937,0.29507399,0.091624475,0.27362456,0.29685854,0.091122048,0.27111601,0.29862162,0.090591962,0.26867279,0.30036329,0.090032585,0.26629396,0.30208363,0.08944218900000001,0.2639786,0.30378272,0.08881895200000001,0.26172578,0.30546062,0.088160949,0.25953458,0.30711741,0.087466154,0.25740405,0.30875315,0.086732432,0.25533329,0.31036793,0.085957542,0.25332135,0.31196182,0.08513913200000001,0.25136731,0.31353488,0.084274739,0.24947024,0.31508719,0.08336179000000001,0.24762922,0.31661883,0.082397601,0.24584331,0.31812986,0.081379385,0.24411159,0.31962036,0.08030425300000001,0.24243312,0.3210904,0.079169223,0.24080699,0.32254005,0.077971229,0.23923226,0.32396939,0.076707136,0.23770801,0.32537848,0.075373756,0.23623331,0.32676741,0.07396786800000001,0.23480722,0.32813624,0.072486248,0.23342882,0.32948505,0.070925697,0.23209718,0.3308139,0.069283082,0.23081138,0.33212288,0.067555383,0.22957049,0.33341205,0.065739745,0.22837357,0.33468149,0.063833547,0.22721971,0.33593127,0.061834473,0.22610796,0.33716145,0.059740606,0.22503741,0.33837213,0.057550522,0.22400712,0.33956336,0.05526341,0.22301617,0.34073521,0.052879206,0.22206363,0.34188778,0.050398739,0.22114858,0.34302111,0.047823903,0.22027007,0.34413529,0.045157842,0.21942719,0.3452304,0.042405166,0.21861901,0.34630649,0.039572182,0.21784459,0.34736365,0.036667149,0.21710302,0.34840195,0.03370056,0.21639335,0.34942146,0.030685449,0.21571468,0.35042225,0.027637721,0.21506606,0.3514044,0.024576508,0.21444656,0.35236797,0.021524553,0.21385527,0.35331305,0.018508616,0.21329125,0.35423969,0.015559909,0.21275357,0.35514799,0.012714559,0.21224131,0.356038,0.010014097,0.21175353,0.3569098,0.0075059791,0.21128931,0.35776347,0.005244142,0.21084773,0.35859908,0.0032896006,0.21042785,0.35941669,0.0017110912,0.21002874,0.36021638,0.00058577301,0.20964948,0.36099823,0,0.20928914,0.3617623,5.0176733e-05,0.20894679,0.36250868,0.00084371551,0.2086215,0.36323742,0.0025001119,0.20831235,0.36394861,0.0051521548,0.2080184,0.36464232,0.008947284,0.20773873,0.36531861,0.014049098,0.20747241,0.36597757,0.020638998,0.20721851,0.36661927,0.02891794,0.20697611,0.36724377,0.039108202,0.20674427,0.36785115,0.051455044,0.20652207,0.36844148,0.066228039,0.20630858,0.36901484,0.083721721,0.20610287,0.36957129,0.10425505,0.20590401,0.37011092,0.12816899,0.20571108,0.37063379,0.15582111,0.20552314,0.37113997,0.18757592,0.20533928,0.37162955,0.22378919,0.20515855,0.37210258,0.26478401,0.20498004,0.37255915,0.31081624,0.20480281,0.37299932,0.36202705,0.20462594,0.37342317,0.41838066,0.20444849,0.37383077,0.47958753,0.20426955,0.3742222,0.54501641,0.20408818,0.37459752,0.61360383,0.20390345,0.37495681,0.6837773,0.20371443,0.37530015,0.75341587,0.20352021,0.37562759,0.81987802,0.20331984,0.37593923,0.88012545,0.20311241,0.37623512,0.93095933,0.20289698,0.37651535,0.96935871,0.20267262,0.37677997,0.99287464,0.20243841,0.37702908,1,0.20219342,0.37726274,0.9904224700000001,0.20193672,0.37748101,0.96508813,0.20166738,0.37768399,0.9260541799999999,0.20138448,0.37787173,0.8761702099999999,0.20108708,0.37804431,0.8186726600000001,0.20077427,0.3782018,0.75678811,0.2004451,0.37834428,0.69341991,0.20009865,0.37847182,0.63095418,0.199734,0.37858448,0.57118371,0.19935021,0.37868235,0.51532437,0.19894636,0.3787655,0.4640896,0.19852152,0.37883399,0.4177915,0.19807477,0.37888791,0.37644514,0.19760516,0.37892731,0.33986213,0.19711178,0.37895229,0.3077273,0.1965937,0.3789629,0.27965697,0.19604998,0.37895924,0.25207932,0.19547974,0.37894167,0.22642047,0.19488267,0.37891089,0.20537111,0.19425912,0.37886756,0.18796819,0.19360943,0.37881237,0.17347264,0.19293397,0.37874601,0.16131285,0.19223309,0.37866916,0.15104326,0.19150714,0.3785825,0.14231393,0.19075648,0.37848672,0.13484795,0.18998147,0.37838251,0.12842462,0.18918247,0.37827054,0.12286683,0.18835983,0.3781515,0.1180315,0.1875139,0.37802608,0.1138023,0.18664505,0.37789496,0.1100841,0.18575362,0.37775882,0.10679861,0.18483999,0.37761835,0.10388111,0.18390449,0.37747423,0.10127777,0.18294749,0.37732715,0.09894359799999999,0.18196934,0.37717779,0.09684083,0.18097041,0.37702683,0.094937613,0.17995104,0.37687497,0.093206966,0.17891159,0.37672287,0.091625938,0.17785242,0.37657123,0.090174936,0.17677389,0.37642074,0.088837166,0.17567635,0.37627206,0.087598184,0.17456015,0.3761259,0.08644552899999999,0.17342566,0.37598293,0.08536841000000001,0.17227323,0.37584384,0.08435746099999999,0.17110321,0.37570932,0.08340452800000001,0.16991597,0.37558003,0.082502491,0.16871185,0.37545668,0.081645124,0.16749122,0.37533995,0.080826966,0.16625443,0.37523051,0.08004322,0.16500183,0.37512905,0.07928966899999999,0.16373379,0.37503627,0.078562596,0.16245066,0.37495283,0.077858723,0.16115279,0.37487943,0.07717516200000001,0.15984055,0.37481675,0.076509365,0.15851428,0.37476547,0.07585908600000001,0.15717435,0.37472628,0.07522234999999999,0.1558211,0.37469986,0.074597421,0.15445491,0.3746869,0.073982784,0.15307611,0.37468808,0.07337711700000001,0.15168508,0.37470408,0.072779279,0.15028216,0.37473559,0.072188291,0.14886771,0.3747833,0.071603325,0.14744208,0.37484788,0.071023695,0.14600564,0.37493002,0.070448842,0.14455874,0.37503041,0.069878331,0.14310174,0.37514973,0.069311843,0.14163499,0.37528866,0.068749168,0.14015885,0.37544789,0.06819019900000001,0.13867367,0.3756281,0.06763493199999999,0.13717981,0.37582998,0.067083459,0.13567763,0.37605421,0.066535964,0.13416748,0.37630147,0.065992724,0.13264972,0.37657245,0.065454102,0.13112471,0.37686784,0.06492054899999999,0.12959279,0.37718831,0.06439259899999999,0.12805434,0.37753455,0.063870865,0.1265097,0.37790725,0.063356043,0.12495923,0.37830709,0.062848902,0.12340329,0.37873475,0.062350286,0.12184223,0.37919092,0.06186111,0.1202764,0.37967628,0.061382355,0.11870618,0.38019152,0.060915065,0.1171319,0.38073732,0.060460346,0.11555393,0.38131436,0.060019354,0.11397263,0.38192334,0.059593297,0.11238834,0.38256492,0.059183423,0.11080143,0.3832398,0.058791018,0.10921225,0.38394867,0.058417395,0.10762116,0.3846922,0.058063889,0.10602852,0.38547107,0.057731847,0.10443467,0.38628599,0.057422617,0.10283999,0.38713762,0.057137541,0.10124481,0.38802665,0.056877946,0.099649508,0.38895377,0.056645128,0.098054428,0.38991966,0.056440346,0.096459931,0.390925,0.056264808,0.094866371,0.39197048,0.056119661,0.093274105,0.39305679,0.056005978,0.09168348900000001,0.3941846,0.05592475,0.09009488,0.3953546,0.055876871,0.088508634,0.39656748,0.055863132,0.086925106,0.39782392,0.055884207,0.08534465300000001,0.3991246,0.055940647,0.08376763199999999,0.40047021,0.056032871,0.082194397,0.40186143,0.056161158,0.08062530699999999,0.40329895,0.056325646,0.079060716,0.40478345,0.056526319,0.077500981,0.40631561,0.056763013,0.07594645899999999,0.40789613,0.057035409,0.074397504,0.40952567,0.057343037,0.072854475,0.41120493,0.057685272,0.071317726,0.4129346,0.058061345,0.069787614,0.41471535,0.058470342,0.06826449499999999,0.41654787,0.058911211,0.06674872499999999,0.41843284,0.059382773,0.06524066100000001,0.42037095,0.059883729,0.06374065900000001,0.42236288,0.060412666,0.062249074,0.42440932,0.060968078,0.060766264,0.42651095,0.061548366,0.059292584,0.42866845,0.06215186,0.05782839,0.43088251,0.06277682699999999,0.056374039,0.43315382,0.063421485,0.054929887,0.43548305,0.06408401699999999,0.05349629,0.4378709,0.064762583,0.052073605,0.44031803,0.065455333,0.050662186,0.44282515,0.066160423,0.049262392,0.44539294,0.06687601899999999,0.047874577,0.44802207,0.06760031499999999,0.046499098,0.45071323,0.068331541,0.045136312,0.45346711,0.06906797200000001,0.043786574,0.45628439,0.069807937,0.04245024,0.45916575,0.070549824,0.041127667,0.46211188,0.071292092,0.039819211,0.46512347,0.07203327,0.038525229,0.46820119,0.07277196800000001,0.037246076,0.47134574,0.073506873,0.035982108,0.47455779,0.074236757,0.034733682,0.47783802,0.074960479,0.033501154,0.48118714,0.07567698,0.032284881,0.48460581,0.07638529099999999,0.031085217,0.48809472,0.077084525,0.02990252,0.49165456,0.07777388,0.028737146,0.49528601,0.07845263700000001,0.027589451,0.49898975,0.079120155,0.026459791,0.50276648,0.079775872,0.025348522,0.5066168599999999,0.080419299,0.024256001,0.5105416,0.081050018,0.023182583,0.5145413599999999,0.08166767799999999,0.022128625,0.51861684,0.08227199,0.021094484,0.52276872,0.082862728,0.020080514,0.52699768,0.08343972,0.019087073,0.5313044099999999,0.08400284500000001,0.018114517,0.5356896,0.084552031,0.017163201,0.54015392,0.085087252,0.016233483,0.54469806,0.08560852100000001,0.015325718,0.5493227000000001,0.086115888,0.014440262,0.55402853,0.086609438,0.013577472,0.55881624,0.087089285,0.012737704,0.5636865,0.087555571,0.011921314,0.56864001,0.08800846399999999,0.011128657,0.57367744,0.088448149,0.010360092,0.57879948,0.088874835,0.009615972699999999,0.58400681,0.089288744,0.008896656399999999,0.58930012,0.089690112,0.008202499,0.5946801,0.090079188,0.0075338568,0.60014742,0.090456231,0.006891086,0.6057027699999999,0.090821507,0.0062745427,0.61134683,0.09117528900000001,0.0056845832,0.61708029,0.091517854,0.0051215636,0.62290384,0.091849484,0.0045858401,0.62881815,0.092170461,0.004077769,0.63482392,0.09248107,0.0035977063,0.64092182,0.092781594,0.0031460084,0.64711254,0.093072316,0.0027230314,0.65339676,0.093353518,0.0023291315,0.65977517,0.093625478,0.0019646648,0.66624846,0.093888472,0.0016299877,0.6728173,0.094142772,0.0013254562,0.6794823800000001,0.09438864499999999,0.0010514266,0.68624438,0.094626354,0.00080825503,0.6931040000000001,0.094856157,0.00059629773,0.70006191,0.095078308,0.00041591087,0.70711879,0.095293053,0.00026745065,0.71427533,0.095500635,0.00015127326,0.72153223,0.09570128899999999,6.7734889e-05,0.72889015,0.095895245,1.719174e-05,0.73634978,0.09608272800000001,0,0.74391181,0.096263955,1.6515863e-05,0.75157693,0.09643913899999999,6.7095522e-05,0.75934581,0.09660848399999999,0.00015209517,0.76721914,0.09677219200000001,0.000271871,0.7751976,0.096930455,0.0004267792,0.78328189,0.097083462,0.00061717598,0.79147268,0.097231395,0.00084341751,0.79977065,0.09737443,0.00110586,0.8081765,0.097512738,0.0014048596,0.8166909,0.09764648300000001,0.0017407726,0.82531454,0.097775826,0.0021139551,0.8340481,0.09790092,0.0025247633,0.84289228,0.098021915,0.0029735535,0.85184774,0.098138955,0.0034606817,0.86091518,0.098252178,0.0039865043,0.87009528,0.098361719,0.0045513774,0.87938873,0.098467708,0.0051556571,0.8887962,0.098570269,0.0057996998,0.89831839,0.09866952399999999,0.0064838615,0.90795598,0.098765588,0.0072084984,0.91770964,0.09885857300000001,0.007973966900000001,0.92758007,0.098948588,0.008780623,0.93756796,0.099035736,0.0096288229,0.94767397,0.09912011900000001,0.010518923,0.9578988000000001,0.099201833,0.011451279,0.96824314,0.099280972,0.012426248,0.97870766,0.099357625,0.013444185,0.98929305,0.099431879,0.014505447,1,0.09950381699999999,0.01561039]],"xticklab":["-6.68e-03","0.02","0.05","0.08","0.11","0.14"],"yticklab":["-95.06","91.04","277.13","463.23","649.32","835.42"],"zticklab":["1.00","0.95","0.91","0.87","0.83","0.79"],"xtick":[0,0.2,0.4,0.6,0.8,1],"ytick":[0,0.2,0.4,0.6,0.8,1],"ztick":[0,0.1999999999999999,0.3999999999999998,0.6000000000000002,0.8000000000000002,1],"axislength":[1,1,1]},"evals":[],"jsHooks":[]}</script>
+</div>
+</div>
+<p>Clinical Tip If 1-specificity is flat or sparse, consider modeling it jointly with sensitivity using a multivariate FDA approach or regularized smoothing. I can help you build a joint basis or penalized functional regression if needed.</p>
+<section id="diagnostics" class="level3">
+<h3 class="anchored" data-anchor-id="diagnostics">Diagnostics</h3>
+<div class="cell">
+<details>
+<summary>R Packages</summary>
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="do">## Check for NA in grid</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="fu">anyNA</span>(grid)  <span class="co"># Should return FALSE</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] FALSE</code></pre>
+</div>
+<details>
+<summary>R Packages</summary>
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co">#if true rebuild grid explicitly</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="co">#grid &lt;- seq(min(threshold, na.rm = TRUE), max(threshold, na.rm = TRUE), length.out = 100)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<p>Sometimes smooth.basis() returns an fd object with internal NA values if the input data is sparse or constant (e.g., all zeros for 1-specificity). You can check:</p>
+<div class="cell">
+<details>
+<summary>R Packages</summary>
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(spec_fd)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>Functional data object:
+
+ Dimensions of the data:
+    time 
+     reps 
+     values 
+
+Basis object:
+
+  Type:   bspline 
+
+  Range:  0.01  to  0.99 
+
+  Number of basis functions:  5 
+
+  Order of spline:  4 
+[1] "  Interior knots"
+[1] 0.5
+
+Coefficient matrix:</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                [,1]
+bspl4.1 -0.006681041
+bspl4.2  0.035097962
+bspl4.3  0.062753426
+bspl4.4  0.034954436
+bspl4.5  0.139958278</code></pre>
+</div>
+<details>
+<summary>R Packages</summary>
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(sens_fd)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>Functional data object:
+
+ Dimensions of the data:
+    time 
+     reps 
+     values 
+
+Basis object:
+
+  Type:   bspline 
+
+  Range:  0.01  to  0.99 
+
+  Number of basis functions:  5 
+
+  Order of spline:  4 
+[1] "  Interior knots"
+[1] 0.5
+
+Coefficient matrix:</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>             [,1]
+bspl4.1 0.7919002
+bspl4.2 0.9765486
+bspl4.3 0.9190431
+bspl4.4 1.0074063
+bspl4.5 0.9921610</code></pre>
+</div>
+</div>
+<p>If spec_fd is flat (e.g., all coefficients zero), try increasing nbasis or using a regularization parameter:</p>
+<div class="cell">
+<details>
+<summary>R Packages</summary>
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>lambda <span class="ot">&lt;-</span> <span class="fl">1e-4</span></span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>fdPar_obj <span class="ot">&lt;-</span> <span class="fu">fdPar</span>(basis, <span class="at">Lfdobj =</span> <span class="fu">int2Lfd</span>(<span class="dv">2</span>), <span class="at">lambda =</span> lambda)</span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>spec_fd <span class="ot">&lt;-</span> <span class="fu">smooth.basis</span>(threshold, one_minus_specificity, fdPar_obj)<span class="sc">$</span>fd</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>
