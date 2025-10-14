@@ -2,10 +2,9 @@
 ---
 title: "Estimating Continuous Time Markov Chains from Incomplete Data: Be mindful of the time"
 author: "Joseph Rickert"
-date: 2025-06-25
+date: 2025-10-15
 code-fold: true
 code-summary: "Show the code"
-image: states.png
 description: "In a previous post, [A Simple Bayesian Multi-state Survival Model for a Clinical Trial](https://rworks.dev/posts/simple-bayesian-model/), I elaborated on a textbook example of a discrete time Markov Chain model to analyze data for two treatments from a multi-arm clinical trial. In this post, I extend the analysis by fitting a Continuous Time Markov model to the same minimalist data set using a likelihood based approach. The continuous time model uses a clever EM algorithm to estimate the generator matrix for the continuous time Markov chain from the same limited state table data used to build the discrete time model. The continuous time model highlights the importance of explicitly accounting for time in modeling real world processes."
 categories: ""
 editor: source
@@ -343,13 +342,15 @@ P_f <- expm(Q_f * t)
 round(P_f,2)
 
 ```
-As it turns out, the continuous time estimates are very credible. For both Seretide and Flucticasone, the transition probabilities estimated for the first two rows P[1,1] to P[1,5] and P[2,1] to P[2,5] closely match the corresponding transition probabilities reported in Welton et al. (2010). The remaining rows of the $P$ matrix are less important because they represent transitions from states that are rarely occupied.
 
 
 :::
 
 
 ::::
+
+As it turns out, the continuous time estimates are very credible. For both Seretide and Flucticasone, the transition probabilities estimated for the first two rows P[1,1] to P[1,5] and P[2,1] to P[2,5] closely match the corresponding transition probabilities reported in Welton et al. (2010). The remaining rows of the $P$ matrix are less important because they represent transitions from states that are rarely occupied.
+
 
 ## Transition Probabilities over Time
 
@@ -612,9 +613,9 @@ ggplot(df, aes(x = time, y = survival, color = cohort)) +
 
 ### Conclusions
 
-The estimated sojourn times seem reasonable, but the long range estimates are to be contemplated with a good deal of skepticism. A literature search did not produce any evidence that the disease would progress as modeled over extended time periods, and it is doubtful that the treatment regimens would remain effective over long periods of time. It is also noteworthy that Welton et al. did not offer any long range projections based on their discrete time model. Nevertheless, the estimated presented are representative of the kinds of results that can be obtained by modeling in continuous time. Moreover, they dramatically point out need for expert opinion and internal validation to assess the assumptions about time.
+The estimated sojourn times seem reasonable, but the long range estimates are to be contemplated with a good deal of skepticism. A literature search did not produce any evidence that asthma would progress as modeled over extended time periods, and it is doubtful that the treatment regimens would remain unmodified over long periods of time. It is also noteworthy that Welton et al. did not offer any long range projections based on their discrete time model. Nevertheless, the long term estimations presented are representative of the kinds of results that can be obtained by modeling in continuous time. 
 
-The survival curves in the plot above are consistent with the survival curves presented in discrete time Markov model estimated in the post referenced above: **except for the labeling of the time axis!!**. Both of these models can't be correct, but they both proceed from reasonable assumptions. As explained above, transition probabilities for DTMC do not vary over time. So having obtained these probabilities, the internal evidence of the model would suggest that disease progression is over weeks. Nevertheless, the CTMC model which replicates the estimated probabilities of the DTMCM shows progression over a time scale that is an order of magnitude longer. 
+The survival curves in the plot above are consistent with the survival curves presented in discrete time Markov model estimated in the post referenced above: **except for the labeling of the time axis!!**. Both of these models proceed from reasonable assumptions, but they both can't be correct. As explained above, transition probabilities for DTMC do not vary over time. So having obtained these probabilities, the internal evidence of the model would suggest that disease progression is over weeks. Nevertheless, the CTMC model which replicates the estimated probabilities of the DTMCM shows progression over a time scale that is an order of magnitude longer. This inconsistency dramatically points out the need for expert opinion and external validation to assess the assumptions about time. Even without a change in the underlying dynamics of a system, a model may only be useful over a time scale that needs to be determined from external evidence.
 
 Be careful with the time.
 

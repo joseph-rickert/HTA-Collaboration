@@ -6,8 +6,11 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
+<meta name="author" content="Joseph Rickert">
+<meta name="dcterms.date" content="2025-10-15">
+<meta name="description" content="In a previous post, A Simple Bayesian Multi-state Survival Model for a Clinical Trial, I elaborated on a textbook example of a discrete time Markov Chain model to analyze data for two treatments from a multi-arm clinical trial. In this post, I extend the analysis by fitting a Continuous Time Markov model to the same minimalist data set using a likelihood based approach. The continuous time model uses a clever EM algorithm to estimate the generator matrix for the continuous time Markov chain from the same limited state table data used to build the discrete time model. The continuous time model highlights the importance of explicitly accounting for time in modeling real world processes.">
 
-<title>Be Careful of the Time: Estimating Continuous Time Markov Chains from Incomplete Data</title>
+<title>Estimating Continuous Time Markov Chains from Incomplete Data: Be mindful of the time</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -81,14 +84,31 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">Be Careful of the Time: Estimating Continuous Time Markov Chains from Incomplete Data</h1>
+<h1 class="title">Estimating Continuous Time Markov Chains from Incomplete Data: Be mindful of the time</h1>
 </div>
 
+<div>
+  <div class="description">
+    In a previous post, <a href="https://rworks.dev/posts/simple-bayesian-model/">A Simple Bayesian Multi-state Survival Model for a Clinical Trial</a>, I elaborated on a textbook example of a discrete time Markov Chain model to analyze data for two treatments from a multi-arm clinical trial. In this post, I extend the analysis by fitting a Continuous Time Markov model to the same minimalist data set using a likelihood based approach. The continuous time model uses a clever EM algorithm to estimate the generator matrix for the continuous time Markov chain from the same limited state table data used to build the discrete time model. The continuous time model highlights the importance of explicitly accounting for time in modeling real world processes.
+  </div>
+</div>
 
 
 <div class="quarto-title-meta">
 
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Joseph Rickert </p>
+          </div>
+  </div>
     
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">October 15, 2025</p>
+    </div>
+  </div>
   
     
   </div>
@@ -96,15 +116,20 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 </header>
 
-<p><strong>Needs to be reworked</strong> This post presents a likelihood method to develop a 5-state continuous time Markov chain model to incomplete data from a clinical trial that compared multiple treatments for asthma. The analysis complements the a previously published post <em>A Simple Bayesian Multi-state Survival Model for a Clinical Trial</em> replicated a textbook example of fitting a discrete time Markov chain to the data. The analysis compares the two models and highlights the importance of carefully the treating time in Markov models based on incomplete data.</p>
-<p>In a previous post, <a href="https://rworks.dev/posts/simple-bayesian-model/">A Simple Bayesian Multi-state Survival Model for a Clinical Trial</a>, I elaborated on a discrete time Markov Chain model that Welton et al.&nbsp;(2010) used to analyze data from two arms of a clinical trial conducted by Kavuru et al.&nbsp;(2000) comparing multiple treatments for asthma management. In this post, I extend the analysis of the Seretide and Flucticasone comparison by fitting a Continuous Time Markov Chain to the same minimalist data set using a likelihood based approach. Thus, not only do we have a comparision between a Bayesian and frequentist methods, but also between discrete time and continuous time Markov chains. This latter comparison highlights the importance of explicitly accounting for time in modeling real world processes.</p>
+<p>The continuous time Markov model is a 5-state, absorbing Markov chain where patients move through various health states as they undergo treatment for asthma. The states are defined as follows: <code>STW</code>= successfully treated week, <code>UTW</code>= unsuccessfully treated week, <code>Hex</code>= hospital-managed exacerbation ,<code>Pex</code>= primary care-managed exacerbation, and <code>TF</code>= treatment failure. The state diagram is shown below.</p>
+<div class="cell">
+<div class="cell-output-display">
+<p><img src="5-state-EM-v2_files/figure-html/unnamed-chunk-1-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
 <section id="its-a-matter-of-time" class="level2">
 <h2 class="anchored" data-anchor-id="its-a-matter-of-time">It’s A Matter of Time</h2>
-<p>The choice between using a discrete time Markov chain (DTMC) or a continuous time Markov chain (CTMC) to model a real world process is mostly about time.</p>
+<p>Before getting into the analysis itself, let’s review some of the salient differences between discrete time and continuous time Markov models. The choice between the two approaches hinges on how much the available can tell you about time.</p>
 <p>A discrete time Markov chain (DTMC) models only the most primitive notion of time. The process starts in some state and then at the next time step, the process either stays in the same state or jumps to another state according to a according to a matrix of transition probabilities that do not vary with time. The mathematical model assumes that the time interval between transitions is fixed and equal to one time unit. Hence, using a DTMC to model a real world process requires that the modeler choose a time step interval that is appropriate for the process being modeled. The time interval could be any regular interval that is consistent with the development of the real world process being modeled. For example, when modeling the progression of a disease, the time interval must be on a scale that is appropriate for the biology of disease progression and reflects the with which data are collected.</p>
 <p>A DTMC model is fully specified when the transition probability matrix <span class="math inline">\(P\)</span> is given or estimated. Each element <span class="math inline">\(p_{ij}\)</span> of <span class="math inline">\(P\)</span> gives the probability of transitioning from state <span class="math inline">\(i\)</span> to state <span class="math inline">\(j\)</span> in one time step. The transition probability matrix for multiple time steps may be computed by raising the one-step transition matrix to the appropriate power. For example, if the time step interval is one week, then the three-week transition probability matrix is given by <span class="math inline">\(P^3\)</span>. So that while time does not generally explicitly enter into the process of estimating the <span class="math inline">\(P\)</span> matrix, the time interval is implicitly defined by the frequency of data collection. Developing a useful DTMC model requires verifying that model predictions compare well with the observed progress of the real world process being modeled. For a disease progression model this would mean comparing state transitions over time to the to actual transitions observed in a cohort of patients.</p>
 <p>In contrast to a DTMC, a continuous time Markov chain (CTMC) explicitly models the time between transitions as exponentially distributed random variables with rates determined by the generator matrix, <span class="math inline">\(Q\)</span>. The elements <span class="math inline">\(q_{ij}\)</span> of <span class="math inline">\(Q\)</span> give the instantaneous rate of transitioning from state <span class="math inline">\(i\)</span> to state <span class="math inline">\(j\)</span>. The time spent in state <span class="math inline">\(i\)</span> before transitioning to another state is also exponentially distributed. In a CTMC model the rates are fixed and do not vary with time, but the transition probabilities do vary with time. The time-dependent transition probability matrix <span class="math inline">\(P(t)\)</span> may be computed from <span class="math inline">\(Q\)</span> by solving the Kolomogorov differential equations. (See below.) For any time interval <span class="math inline">\(t\)</span>, the probabilities of transitioning from state <span class="math inline">\(i\)</span> to state <span class="math inline">\(j\)</span> may be computed by matrix exponential: <span class="math inline">\(P(t) = e^{Qt}\)</span>.</p>
 <p>Unlike a DTMC model, a CTMC model explicitly allows for states to change at random intervals determined by transition rates that are unique to each state. So while time interval are random, it may not be apparent that the overall time scale is set by the data used to estimate the <span class="math inline">\(Q\)</span> matrix. We will see how this plays out in the analysis below.</p>
+<p>Also note that the Appendix below provides some of the relevant background on CTMCs.</p>
 </section>
 <section id="preliminaries" class="level2">
 <h2 class="anchored" data-anchor-id="preliminaries">Preliminaries</h2>
@@ -165,7 +190,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="the-data" class="level2">
 <h2 class="anchored" data-anchor-id="the-data">The Data</h2>
-<p>As in the previous post, I follow Welton et al.&nbsp;and confine my analysis to comparing the two treatments Seretide and Flucticasone. The Seretide and Flucticasone data are reproduced in in Welton et al.&nbsp;(2010) and in the paper by Briggs et al.&nbsp;(2003). The data for both of these treatments, sometimes described as “incomplete discrete data” are just state tables that comprise the aggregate number of state transition observed over the course of 12 weeks. (The states are defined as follows: <code>STW</code>= successfully treated week, <code>UTW</code>= unsuccessfully treated week, <code>Hex</code>= hospital-managed exacerbation ,<code>Pex</code>= primary care-managed exacerbation, and <code>TF</code>= treatment failure.) This is probably the most minimal data set that could be used to fit a multi-state Markov model. Moreover, the data is sparse. For Seretide, only two state transitions were observed for <code>UTW</code> and <code>Hex</code> combined.</p>
+<p>The data for the model comes from the clinical trial conducted by Kavuru et al.&nbsp;(2000) comparing multiple treatments for asthma management. As in the previous post, I follow Welton et al.&nbsp;and confine the analysis to comparing the two treatments Seretide and Flucticasone. These data, which are reproduced in in Welton et al., are just state tables that give the aggregate number of state transition observed over the course of 12 weeks. Data of this sort is sometimes described as “incomplete discrete data” because it does not provide the complete continuous time history of each patient. Instead, the data only give the number of patients in each state at the beginning and end of the 12 week period.</p>
 <div class="cell">
 <details>
 <summary>Data Code</summary>
@@ -239,15 +264,10 @@ TF    0   0   0   0 156</code></pre>
 </div>
 </div>
 </div>
-<div class="cell">
-<div class="cell-output-display">
-<p><img src="5-state-EM-v2_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid" width="672"></p>
-</div>
-</div>
 </section>
 <section id="the-likelihood-solution" class="level2">
 <h2 class="anchored" data-anchor-id="the-likelihood-solution">The Likelihood Solution</h2>
-<p>The model below uses the EM algorithm developed by Bladt and Sørensen (2005), further described in Inamura (2006), and implemente in the <a href="https://cran.r-project.org/package=ctmcd"><code>ctmcd</code></a> R package to calculate the Maximum Likelihood estimator for the generator matrix, <span class="math inline">\(Q\)</span>. To understand the method, consider that if complete continuous time data were available it would be straightforward to compute the Likelihood function for the <span class="math inline">\(Q\)</span> matrix.</p>
+<p>The model below uses the EM algorithm developed by Bladt and Sørensen (2005), further described in Inamura (2006), and implemented in the <a href="https://cran.r-project.org/package=ctmcd"><code>ctmcd</code></a> R package to calculate the Maximum Likelihood estimator for the generator matrix, <span class="math inline">\(Q\)</span>. To understand the method, consider that if complete continuous time data were available it would be straightforward to compute the Likelihood function for the <span class="math inline">\(Q\)</span> matrix.</p>
 <p><span class="math display">\[L(Q) = \prod_{i=1}^{I} \prod_{\substack{j=1 \\ j \ne i}}^{I} q_{ij}^{N_{ij}(T)} \exp\left( -q_{ij} R_i(T) \right)\]</span></p>
 <p>where <span class="math inline">\(N_{ij}(T)\)</span> denotes the number of transitions from <span class="math inline">\(i\)</span> to <span class="math inline">\(j\)</span> within time <span class="math inline">\(T\)</span> and <span class="math inline">\(R_i(T)\)</span> gives the cumulative sojourn times in state <span class="math inline">\(i\)</span> before the process jumps to another state. In this case, a single off-diagonal element of <span class="math inline">\(Q\)</span> would look like:</p>
 <p><span class="math display">\[\hat{q}_{ij}^{\mathrm{ML}} = \frac{N_{ij}(T)}{R_i(T)}\]</span></p>
@@ -267,6 +287,7 @@ TF    0   0   0   0 156</code></pre>
 <span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>s0[<span class="dv">5</span>,] <span class="ot">&lt;-</span> <span class="dv">0</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
+<p>Three sets of matrices are laid out here for each treatment. The first is the transition probability matrix, <span class="math inline">\(P\)</span>, reported in Welton et al.&nbsp;(2010) which was derived from the state table data. These transitions are used to demonstrate the face value credibility of the CTMC model. The second pair of matrices are the generator matrices, <span class="math inline">\(Q\)</span>, estimated by the EM algorithm. The third set show the estimated transition probability matrices, <span class="math inline">\(P(t)\)</span>, computed from the estimated <span class="math inline">\(Q\)</span> matrix by matrix exponentiation for a time interval of one unit (12 weeks).</p>
 </section>
 <div class="columns">
 <div class="column" style="width:45%;">
@@ -406,8 +427,10 @@ TF  0.00 0.00   0 0.00 1.00</code></pre>
 </section>
 </div>
 </div>
+<p>As it turns out, the continuous time estimates are very credible. For both Seretide and Flucticasone, the transition probabilities estimated for the first two rows P[1,1] to P[1,5] and P[2,1] to P[2,5] closely match the corresponding transition probabilities reported in Welton et al.&nbsp;(2010). The remaining rows of the <span class="math inline">\(P\)</span> matrix are less important because they represent transitions from states that are rarely occupied.</p>
 <section id="transition-probabilities-over-time" class="level2">
 <h2 class="anchored" data-anchor-id="transition-probabilities-over-time">Transition Probabilities over Time</h2>
+<p>This next bit of code plots out the transition probabilities over three time periods for both treatments. Note that the points on the curves at twelve weeks match the matrices computed above, and the values plotted for the first eleven weeks seem to be plausible estimates. Note that in the code below the matrices <code>TP_s</code> and <code>TP_f</code> contain all of the transition probabilities and that the code to plot these probabilities is also given. This may be useful for exploring the behavior of the model over time.</p>
 <section id="seretide-probabilities-over-time" class="level3">
 <h3 class="anchored" data-anchor-id="seretide-probabilities-over-time">Seretide Probabilities over time</h3>
 <div class="cell">
@@ -525,8 +548,11 @@ TF  0.00 0.00   0 0.00 1.00</code></pre>
 </div>
 </section>
 </section>
-<section id="fundamental-matrix-for-absorbing-continuous-time-markov-chains" class="level2">
-<h2 class="anchored" data-anchor-id="fundamental-matrix-for-absorbing-continuous-time-markov-chains">Fundamental Matrix for Absorbing Continuous Time Markov Chains</h2>
+<section id="some-estimates-based-on-ctmc-theory." class="level2">
+<h2 class="anchored" data-anchor-id="some-estimates-based-on-ctmc-theory.">Some Estimates Based on CTMC Theory.</h2>
+<p>This next section presents some additional estimates based on the theory of continuous time Markov chains. These estimates include the mean sojourn times in each state and the mean time to absorption. Note that all of these time estimates are in the units of weeks x 12 defined by the data.</p>
+<section id="fundamental-matrix-for-absorbing-continuous-time-markov-chains" class="level3">
+<h3 class="anchored" data-anchor-id="fundamental-matrix-for-absorbing-continuous-time-markov-chains">Fundamental Matrix for Absorbing Continuous Time Markov Chains</h3>
 <p>Let V be the sub matrix of the generator matrix, Q, comprising the transient states. Then the matrix <span class="math inline">\(F = -V^{-1}\)</span> is called the fundamental matrix. For all transient states <span class="math inline">\(i\)</span> and <span class="math inline">\(j\)</span>, <span class="math inline">\(F_{ij}\)</span> is the time that a process started in state <span class="math inline">\(i\)</span> spends in state <span class="math inline">\(j\)</span>. Then for each state i, <span class="math inline">\(T_a = \sum_{j}F_{ij}\)</span> is the mean time to absorption.</p>
 <div class="columns">
 <div class="column" style="width:45%;">
@@ -613,8 +639,8 @@ Pex 5.50 35.89 0.00 0.34</code></pre>
 </div>
 </div>
 </section>
-<section id="survival" class="level2">
-<h2 class="anchored" data-anchor-id="survival">Survival</h2>
+<section id="survival" class="level3">
+<h3 class="anchored" data-anchor-id="survival">Survival</h3>
 <div class="cell">
 <details>
 <summary>Show the Plot Code</summary>
@@ -659,9 +685,16 @@ Pex 5.50 35.89 0.00 0.34</code></pre>
 </div>
 </div>
 </section>
+<section id="conclusions" class="level3">
+<h3 class="anchored" data-anchor-id="conclusions">Conclusions</h3>
+<p>The estimated sojourn times seem reasonable, but the long range estimates are to be contemplated with a good deal of skepticism. A literature search did not produce any evidence that asthma would progress as modeled over extended time periods, and it is doubtful that the treatment regimens would remain unmodified over long periods of time. It is also noteworthy that Welton et al.&nbsp;did not offer any long range projections based on their discrete time model. Nevertheless, the long term estimations presented are representative of the kinds of results that can be obtained by modeling in continuous time.</p>
+<p>The survival curves in the plot above are consistent with the survival curves presented in discrete time Markov model estimated in the post referenced above: <strong>except for the labeling of the time axis!!</strong>. Both of these models proceed from reasonable assumptions, but they both can’t be correct. As explained above, transition probabilities for DTMC do not vary over time. So having obtained these probabilities, the internal evidence of the model would suggest that disease progression is over weeks. Nevertheless, the CTMC model which replicates the estimated probabilities of the DTMCM shows progression over a time scale that is an order of magnitude longer. This inconsistency dramatically points out the need for expert opinion and external validation to assess the assumptions about time. Even without a change in the underlying dynamics of a system, a model may only be useful over a time scale that needs to be determined from external evidence.</p>
+<p>Be careful with the time.</p>
+</section>
+</section>
 <section id="appendix-continuous-time-markov-chains" class="level2">
 <h2 class="anchored" data-anchor-id="appendix-continuous-time-markov-chains">Appendix: Continuous Time Markov Chains</h2>
-<p>As in the previous post, the progress of patients pasing through various states of health as they undergo for asthma is modeled by the following 5-state Markov chain. In the present analysis, I fit the model to a Continuous Time Markov Chain (CTMC) so a little background on continuous time Markov chains is in order. A Continuous-Time Markov Chain (CTMC) is a stochastic process <span class="math inline">\(X(t), t \ge 0\)</span> over a finite or countable state space, <span class="math inline">\(S\)</span>, such that the process satisfies the Markov property: the future state depends only on the current state, not on the past history. <span class="math display">\[P(X(t + s) =j | X(s) = i, history) = P(X(t + s) =j | X(s) = i)\]</span> Hence, just like a discrete time Markov chain, a CTMC is <em>memoryless</em>. However, unlike a discrete time Markov chain where the behavior of the process is determined by a matrix of transition probabilities, the dynamics of a CTMC are determined by its generator matrix <span class="math inline">\(Q\)</span> which has the following following properties:</p>
+<p>As in the previous post, the progress of patients passing through various states of health as they undergo for asthma is modeled by the following 5-state Markov chain. In the present analysis, I fit the model to a Continuous Time Markov Chain (CTMC) so a little background on continuous time Markov chains is in order. A Continuous-Time Markov Chain (CTMC) is a stochastic process <span class="math inline">\(X(t), t \ge 0\)</span> over a finite or countable state space, <span class="math inline">\(S\)</span>, such that the process satisfies the Markov property: the future state depends only on the current state, not on the past history. <span class="math display">\[P(X(t + s) =j | X(s) = i, history) = P(X(t + s) =j | X(s) = i)\]</span> Hence, just like a discrete time Markov chain, a CTMC is <em>memoryless</em>. However, unlike a discrete time Markov chain where the behavior of the process is determined by a matrix of transition probabilities, the dynamics of a CTMC are determined by its generator matrix <span class="math inline">\(Q\)</span> which has the following following properties:</p>
 <ul>
 <li><p>For <span class="math inline">\({i \neq j}\)</span>, the off-diagonal entries <span class="math inline">\(q_{ij} \geq 0\)</span> represent the instantaneous transition rate from state <span class="math inline">\(i\)</span> to state <span class="math inline">\(j\)</span>.</p></li>
 <li><p>The diagonal entries are defined such that each row sums to zero: <span class="math inline">\(q_{ii} = -\sum_{j \neq i} q_{ij}\)</span></p></li>
@@ -671,7 +704,7 @@ Pex 5.50 35.89 0.00 0.34</code></pre>
 </section>
 <section id="conditional-equations" class="level2">
 <h2 class="anchored" data-anchor-id="conditional-equations">Conditional Equations</h2>
-<p>The integral equations requred to estimate the likelihood function for the <span class="math inline">\(Q\)</span> matrix from incomplete data are: <span class="math display">\[E(R_i(T) \mid Q, s(0), s(T)) = \frac{n_{i,0}s(T)\,\mathbf{u}_{s(0)}^T
+<p>The integral equations required to estimate the likelihood function for the <span class="math inline">\(Q\)</span> matrix from incomplete data are: <span class="math display">\[E(R_i(T) \mid Q, s(0), s(T)) = \frac{n_{i,0}s(T)\,\mathbf{u}_{s(0)}^T
 \left( \int_0^T e^{Qt} \,\mathbf{u}_i \mathbf{u}_i^T\, e^{Q(T - t)} \,dt \right)
 \mathbf{u}_{s(T)}}{\mathbf{u}_{s(0)}^T\, e^{QT}\, \mathbf{u}_{s(T)}}\]</span></p>
 <p>and</p>
@@ -692,11 +725,9 @@ Pex 5.50 35.89 0.00 0.34</code></pre>
 <h2 class="anchored" data-anchor-id="refernces">Refernces</h2>
 <p>Marius Pfeuffer: <a href="https://cran.r-project.org/web/packages/ctmcd/vignettes/RJ-2017-038.pdf">ctmcd: An R Package for Estimating the Parameters of a Continuous-Time Markov Chain from Discrete-Time Data</a>, The R Journal Vol. 9/2, December (2017)</p>
 <p>M. Bladt and M. Sørensen. <a href="https://doi.org/10.1111/j.1467-%209868.2005.00508.x">Statistical inference for discretely observed Markov jump processes</a> Journal of the Royal Statistical (2005). Look <a href="https://www.maphysto.dk/publications2/MPS-RR/2003/21.pdf">here</a> for the pdf.</p>
-<p>Briggs AH, Ades AE, Price MJ. Probabilistic Sensitivity Analysis for Decision Trees with Multiple Branches: Use of the Dirichlet Distribution in a Bayesian Framework. Medical Decision Making, (2003)</p>
-<p>Yasunari Inamura, Estimating Continuous Time Transition Matrices From Discretely Observed Data, Bank of Japan Working Paper Series (2006).</p>
+<p>Yasunari Inamura, <a href="https://www.boj.or.jp/en/research/wps_rev/wps_2006/data/wp06e07.pdf">Estimating Continuous Time Transition Matrices From Discretely Observed Data</a>, Bank of Japan Working Paper Series (2006).</p>
 <p>Kavuru M, Melamed J, Gross G, Laforce C, House K, Prillaman B, Baitinger L, Woodring A, and Shah T. <a href="https://pubmed.ncbi.nlm.nih.gov/10856143/">Salmeterol and fluticasone propionate combined in a new powder inhalation device for the treatment of asthma: a randomized, double-blind, placebo-controlled trial</a>. (2000)</p>
 <p>Welton NJ, Sutton AJ, Cooper NJ, Abrams KR, and Ades AE, Evidence Synthesis for Decision Making in Healthcare. Cambridge University Press. (2010)</p>
-<p>Dacal Rivasa et al.&nbsp;<a href="https://www.archbronconeumol.org/es-early-failure-late-failure-sustained-avance-S0300289625001395">Early Failure, Late Failure, and Sustained Response to Biologics in Severe Asthma: A Long-term, Real-world, Multicentre study</a> (2025)</p>
 </section>
 
 </main>
