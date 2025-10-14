@@ -611,7 +611,7 @@ ggplot(df, aes(x = time, y = survival, color = cohort)) +
 
 ```
 
-### Conclusions
+## Conclusions
 
 The estimated sojourn times seem reasonable, but the long range estimates are to be contemplated with a good deal of skepticism. A literature search did not produce any evidence that asthma would progress as modeled over extended time periods, and it is doubtful that the treatment regimens would remain unmodified over long periods of time. It is also noteworthy that Welton et al. did not offer any long range projections based on their discrete time model. Nevertheless, the long term estimations presented are representative of the kinds of results that can be obtained by modeling in continuous time. 
 
